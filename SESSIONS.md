@@ -30,6 +30,10 @@
 ### What to do first next session
 - The remaining un-actioned medium/low findings are now tracked in README.md's Roadmap — pick up from there.
 - Still the standing top priority from prior sessions: run `/foundry-init` on a real, non-scratch project for the first time.
+- Design and build the standalone fresh-context QC/adversarial-review skill (see addendum below and DECISIONS.md) — formalizing the exact process just used on Foundry itself.
+
+### Addendum — QC/review skill positioned as referenced, not owned
+- Right after this session's independent review proved valuable, the user asked whether it should become a permanent built-in part of Foundry. Decided no, for the same reason Promptify isn't owned by `foundry-init`: it's a fundamentally different capability (deep content/code review, not scaffolding) and baking it in would blur Foundry's scope. Added it to README.md's Roadmap as its own future standalone skill, and added a forward-looking note in `foundry-init`'s Step 3 describing the intended integration (Foundry surfaces it once it exists, doesn't own or auto-invoke it) — without claiming it's available yet, since it isn't built. Full reasoning in DECISIONS.md.
 
 ---
 

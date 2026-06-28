@@ -75,6 +75,8 @@ After Step 2 completes successfully, write `foundry.scaffolded: true`, `foundry.
 
 Once scaffolding is done, tell the user `/promptify` and `/promptify!` are available (from this Foundry install) for turning rough task descriptions into structured, effective prompts — and that it's worth a try the next time they're about to write a multi-step request. Don't invoke it automatically; just surface that it exists.
 
+**Future integration point (not yet active — the skill doesn't exist yet):** once the standalone fresh-context QC/adversarial-review skill described in README.md's Roadmap is built, this step should also mention it — same pattern as Promptify: Foundry surfaces that it exists and when it's worth running (e.g. "before treating any security-sensitive or destructive-capable code as done, consider running the QC review skill"), without owning or invoking it automatically. Do not reference this skill by a specific command name until it actually exists; check whether it's been built yet (e.g. `ls ~/.claude/skills/` for a plausibly-named skill) before claiming it's available — don't assume from this note alone that it's been built.
+
 ## Step 4 — final review, no auto-commit
 
 Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md.
