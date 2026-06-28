@@ -52,6 +52,31 @@ Lets a future session in this project know at a glance whether Foundry is set up
 3. Validate the same way as Hook 1: pipe-test with synthetic stdin against each of the three states (write a temporary `.foundry` block representing each state into a scratch `.claude/settings.json`, run the extracted command, confirm the right `additionalContext` comes back) before trusting it in the real project.
 4. This hook only *reads* the `foundry.scaffolded`/`foundry.dismissed` fields — it does not write them. Those are written by `foundry-init` (Step 2.5, on successful completion) and by the dismiss flow (see `foundry-init`'s "Dismissing the status hook's offer" section) respectively. If this hook is ever wired standalone (not via `foundry-init`) onto a project that already has docs/hooks from some other process, ask the user whether to mark `foundry.scaffolded: true` immediately (since the scaffolding already effectively exists) rather than leaving it perpetually offering `/foundry-init` on a project that doesn't need it.
 
+## Hook 4: directory-drift logger (optional — offer it, don't force it)
+
+Detects when a Bash command's leading `cd` targets a directory outside this project, and logs it — a real, working substitute for the originally-desired `CwdChanged` hook, whose actual stdin payload could not be verified (see README.md Roadmap). This catches a specific, real, confirmed failure mode: a long session running many path-qualified commands (`cd ~/Projects/other-project && ...`) without ever triggering a harness-level "the session's cwd changed" event — which is exactly what happened during this hook's own design session, discovered when `EnterWorktree` reported "not in a git repository" despite extensive prior work in a real git repo, revealing the session's tracked root had never actually moved.
+
+**Steps:**
+1. Build a `PreToolUse` hook matching `Bash`, command (verified against 6 real test cases — detects drift to a different project, correctly stays silent for same-project subdirectories/the root itself/no-`cd`-at-all/a nonexistent path):
+   ```bash
+   CMD=$(jq -r '.tool_input.command // ""')
+   TARGET=$(echo "$CMD" | grep -oE '^cd[[:space:]]+[^&;]+' | sed -E 's/^cd[[:space:]]+//' | sed -E 's/[[:space:]]+$//' | sed "s|^~|$HOME|")
+   if [ -n "$TARGET" ]; then
+     REAL_TARGET=$(cd "$TARGET" 2>/dev/null && pwd)
+     ROOT="<the project's absolute root path, substituted at install time>"
+     if [ -n "$REAL_TARGET" ] && [ "$REAL_TARGET" != "$ROOT" ] && [[ "$REAL_TARGET" != "$ROOT"/* ]]; then
+       echo "$(date -Iseconds) DRIFT: cd to $REAL_TARGET (outside $ROOT)" >> .claude/drift.log
+     fi
+   fi
+   ```
+   This logs only — it does not block (`continue: true` implicitly, no `decision: block`) and does not inject `additionalContext`, since drift to another directory isn't inherently wrong (legitimate cross-project work happens), it's just a signal worth having a record of.
+2. **Two known, real limitations — state both plainly, don't oversell this as comprehensive:**
+   - Only catches `cd` as the **first** token of a command. A `cd` appearing later in a chain (e.g. `echo hello; cd ~/other-project`) is not detected — confirmed via direct test, not assumed.
+   - A relative `cd ..`/`cd ../sibling` resolves against whatever the shell's *actual* current directory is at execution time, which this hook cannot independently know — it can produce a false positive (flagging a legitimate same-project relative move as drift) or a false negative depending on actual shell state. This is a real, accepted gap, not silently glossed over.
+3. Validate before writing: pipe-test with synthetic stdin (`echo '{"tool_input":{"command":"cd ~/Projects/other && ls"}}' | bash -c "<command>"`) confirming it appends to `.claude/drift.log` for a real cross-project path and stays silent for a same-project path, exactly as tested during this hook's own design.
+4. Add `.claude/drift.log` to `.gitignore` — it's local diagnostic output, not something to commit or share.
+5. Offer this hook, don't force it into the default sequence — `foundry-init` does not call this automatically; mention it's available if the user wants visibility into cross-project drift specifically.
+
 ## After wiring
 
 Confirm with the user before moving on — show the diff to `.claude/settings.json`, don't just report success.

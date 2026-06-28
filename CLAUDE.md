@@ -11,7 +11,7 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 ## Architecture
 - `skills/foundry-init/` — orchestrator; calls the others in sequence based on a questionnaire; writes the `foundry.scaffolded`/`scaffoldedDate` marker into `.claude/settings.json` on successful completion, and `foundry.dismissed` if the user declines the status hook's offer
 - `skills/foundry-docs/` — renders `templates/*.template` into a project's CLAUDE.md/DECISIONS.md/SESSIONS.md
-- `skills/foundry-hooks/` — wires three hooks into a project's `.claude/settings.json`: Hook 1 (SessionStart doc-loader), Hook 2 (secrets-guard pre-commit, only if `HANDLES_SECRETS`), Hook 3 (status/offer — checks `foundry.scaffolded`/`foundry.dismissed`, always added)
+- `skills/foundry-hooks/` — wires hooks into a project's `.claude/settings.json`: Hook 1 (SessionStart doc-loader), Hook 2 (secrets-guard pre-commit, only if `HANDLES_SECRETS`), Hook 3 (status/offer — checks `foundry.scaffolded`/`foundry.dismissed`, always added), Hook 4 (directory-drift logger — optional, `PreToolUse`/`Bash`, logs out-of-project `cd`s to `.claude/drift.log`)
 - `skills/foundry-security/` — `.gitignore` baseline, `.env.example` convention, already-committed-secrets check
 - `skills/foundry-repo-hygiene/` — new-repo commit sequencing, ongoing docs-freshness discipline
 - `skills/foundry-governance/` — regulatory/compliance section content, with an explicit anti-fabrication rule (states "not yet researched" rather than inventing plausible compliance language)

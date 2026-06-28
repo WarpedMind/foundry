@@ -1,6 +1,19 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — CwdChanged superseded: detect command-level drift, not cwd-change events
+
+### A deferred item should be re-attempted with real triggers before being accepted as permanently blocked
+- The previous entry below left `CwdChanged` deferred as "designed but unverified." The user pushed back on accepting that as final and asked to actually try triggering it for real, offering to help.
+- **Why:** "couldn't verify it inside one conversation" was true at the time, but wasn't actually exhausted — there were real untried mechanisms (a Bash-tool `cd`, `EnterWorktree`) worth attempting before settling. Two real attempts (external shell `cd`, Bash-tool `cd`) produced informative negative results rather than a dead end.
+
+### The investigation itself revealed the real problem was misdiagnosed
+- Attempting `EnterWorktree` as a third trigger (its docs state it changes the session's working directory) produced "not in a git repository" — surprising, since the session had been doing extensive work inside a real git repo for hours. Investigating that error revealed the actual cause: every Foundry-related command this whole session had been path-qualified (`cd ~/Projects/foundry && ...`), never a persistent directory change — so the harness's own tracked session root had silently never moved from the conversation's original directory the entire time.
+- **Why this matters:** it means `CwdChanged`, even if it had been built correctly against a verified payload, would not have fired during the exact session that motivated wanting it — the harness's own "cwd" never changed, even though the actual work clearly drifted across projects. The original diagnosis (detect when cwd changes) was solving the wrong problem.
+- **How to apply:** the real, observed failure mode is path-qualified command drift, not a literal working-directory change — built a `PreToolUse`/`Bash` hook that detects a leading `cd` to an out-of-project path and logs it, which directly catches the actual pattern that happened, verified against 6 real test cases (including one real bug — a trailing-space parsing error — caught only by `bash -x` tracing). When an investigation reveals the original framing of a problem was wrong, redesign around what was actually observed, don't force the original mechanism to fit.
+
+---
+
 ## 2026-06-28 — Cross-project drift mechanism: written rule shipped, hook deferred unverified
 
 ### Don't write a hook against a guessed payload shape, even when the hook event itself is confirmed real
