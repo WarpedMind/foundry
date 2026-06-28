@@ -65,4 +65,4 @@ See [`docs/HOWS_AND_WHYS.md`](docs/HOWS_AND_WHYS.md) for the reasoning behind ea
 
 ## License
 
-Not yet decided — to be added before any public release/announcement.
+MIT — see [LICENSE](LICENSE).

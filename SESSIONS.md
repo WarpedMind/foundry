@@ -1,6 +1,20 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 3 — license, public-release readiness)
+
+### What was built
+- Added `LICENSE` (MIT) and updated README.md's License section to point to it.
+- Decided public/open-source over private: no competitive/business reason to keep this private, and openness directly supports the stated goal of building a track record. The only counterargument was wanting more polish time first, which is a timing preference, not a security concern — addressed by keeping the README/CLAUDE.md honest about current verification gaps rather than waiting.
+
+### Verification
+- N/A — documentation/licensing change only, no code/hook logic touched.
+
+### What to do first next session
+- The real next milestone: run `/foundry-init` on an actual project, not a scratch directory.
+
+---
+
 ## 2026-06-28 (Session 2 — STACK.md, status hook, context-checkpoint rule)
 
 ### What was built

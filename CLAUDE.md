@@ -29,15 +29,15 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 - Pushed to `github.com/WarpedMind/foundry` (public) and installed at `~/.claude/skills/` — both confirmed working.
 
 ## KNOWN DEBT
-- No license chosen yet — needed before any public announcement/release
 - Promptify's "prompt shape" classification logic has not been tested against a range of real rough inputs yet — only designed, not exercised
 - foundry-governance and foundry-security have been verified at the mechanism level (hook logic, detection patterns) but not yet exercised through a real multi-step Skill invocation the way foundry-init was
 - foundry-stack has not yet been exercised through a real Skill invocation either — verified by hand-rendering against real project history, not by running the skill itself end-to-end
-- See README.md's Roadmap section for explicitly deferred features (proactive review agents, `foundry-update`, persistent statusLine indicator, pluggable external skill packs)
+- Foundry has never been run on a real, non-scratch project — every test so far was a disposable scratch directory. This is the real next milestone before treating it as proven.
+- See README.md's Roadmap section for explicitly deferred features (proactive review agents, `foundry-update`, persistent statusLine indicator, pluggable external skill packs, cross-project lessons/stack aggregation)
 
 ## Next session priorities (in order)
-- Exercise `/promptify`, `/foundry-stack`, and the status hook's dismiss path through real Skill-tool invocations (not hand-simulated) to close the remaining verification gaps above
-- Decide on a license
+- Run `/foundry-init` on a real project (not a scratch directory) — the actual milestone that matters most right now
+- Exercise `/promptify`, `/foundry-stack`, and the status hook's dismiss path through real Skill-tool invocations to close the remaining verification gaps above
 - Consider whether foundry-docs needs a literal IF-block parser/instruction refinement after more real-world use, or whether the current "follow these steps" Markdown instruction has proven sufficient
 
 ## Rules / Never do
