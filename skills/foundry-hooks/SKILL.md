@@ -1,6 +1,6 @@
 ---
 name: foundry-hooks
-description: Wire a SessionStart doc-loader hook (and optionally a secrets-guard pre-commit hook) into a project's .claude/settings.json. Use after foundry-docs has created CLAUDE.md/DECISIONS.md/SESSIONS.md, or standalone on any existing project that wants its docs auto-loaded into every session.
+description: Wire a SessionStart doc-loader hook, a status/offer hook, and (if the project handles secrets) a secrets-guard pre-commit hook into a project's .claude/settings.json. Use after foundry-docs has created CLAUDE.md/DECISIONS.md/SESSIONS.md, or standalone on any existing project that wants its docs auto-loaded into every session.
 ---
 
 # foundry-hooks
@@ -37,6 +37,16 @@ Generalizes "before every commit, confirm no `.env`/config/`*.pem` staged" from 
    Extend the pattern with any project-specific real-config filename named in CLAUDE.md's Security Rules section (e.g. if the project uses a different secrets file name than the defaults above).
 3. Validate this hook the same way before writing it: pipe-test with synthetic stdin matching a `Bash`/`git commit` tool call, confirm it blocks when a forbidden file is staged (test in a scratch git repo, not the real project) and allows when it isn't.
 4. This is a safety net, not a replacement for the user's own judgment — state that plainly when presenting it, don't oversell it as foolproof (e.g. it won't catch secrets pasted into a non-matching filename, or already-committed secrets).
+
+## Hook 3: status/offer hook (always add this, even when invoked standalone outside foundry-init)
+
+Lets a future session in this project know at a glance whether Foundry is set up, without re-running the questionnaire or being noisy about it. Three states, all verified: scaffolded (silent confirmation: "Foundry: Active (scaffolded <date>)"), dismissed (completely silent — empty `additionalContext`), or neither (a one-line offer to run `/foundry-init`, plus how to dismiss it).
+
+**Steps:**
+1. Read `templates/settings.status.json.template` from this Foundry checkout. It has no placeholders to substitute — the command reads `.foundry.scaffolded`/`.foundry.dismissed`/`.foundry.scaffoldedDate` from `.claude/settings.json` directly at runtime, not at template-render time, since those fields don't exist yet at the moment this hook is being installed.
+2. Merge into `.claude/settings.json` under `hooks.SessionStart` as a **separate array entry** alongside Hook 1 (confirmed: multiple `SessionStart` entries coexist correctly in the same array — don't try to combine them into one hook's command).
+3. Validate the same way as Hook 1: pipe-test with synthetic stdin against each of the three states (write a temporary `.foundry` block representing each state into a scratch `.claude/settings.json`, run the extracted command, confirm the right `additionalContext` comes back) before trusting it in the real project.
+4. This hook only *reads* the `foundry.scaffolded`/`foundry.dismissed` fields — it does not write them. Those are written by `foundry-init` (Step 2.5, on successful completion) and by the dismiss flow (see `foundry-init`'s "Dismissing the status hook's offer" section) respectively. If this hook is ever wired standalone (not via `foundry-init`) onto a project that already has docs/hooks from some other process, ask the user whether to mark `foundry.scaffolded: true` immediately (since the scaffolding already effectively exists) rather than leaving it perpetually offering `/foundry-init` on a project that doesn't need it.
 
 ## After wiring
 

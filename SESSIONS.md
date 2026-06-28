@@ -1,6 +1,29 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 2 — STACK.md, status hook, context-checkpoint rule)
+
+### What was built
+- **`foundry-stack` skill + `STACK.md.template`** (new 8th skill): career/portfolio tech-stack tracking, distinct in audience and lifecycle from CLAUDE.md/DECISIONS.md/SESSIONS.md. Modeled directly on a proven real pattern (`jobhunting/lazy-larry/STACK.md`) rather than invented from scratch — same section structure (current stack table, planned/not-yet-built, version snapshots with "what this demonstrates," skills-gap-vs-job-postings, ready-to-paste resume bullet). Added a mandatory why-linkage rule after the user flagged that an early draft only covered what/when, not why: every non-trivial row must state the alternative/reason inline or cross-reference the relevant DECISIONS.md entry by date. Wired into `foundry-init`'s questionnaire (`TRACK_STACK` flag) and call sequence.
+- **Status/offer SessionStart hook** (`templates/settings.status.json.template`, Hook 3 in `foundry-hooks`): three states — scaffolded (silent "Foundry: Active (scaffolded <date>)"), dismissed (completely silent), neither (one-line offer to run `/foundry-init`). `foundry.scaffolded`/`scaffoldedDate` are written by `foundry-init` on successful completion (Step 2.5); `foundry.dismissed` is written by a new dismiss path if the user declines the offer. The status hook itself only reads these fields, never writes them.
+- **Context-checkpoint rule** added to `CLAUDE.md.template`'s standing Rules: proactively suggest a SESSIONS.md/memory update plus `/clear` when a session has drifted across many unrelated subtasks or run long — prompted by the user asking whether Foundry enforces good context-management practice, noticing in the moment that this very build session hadn't been proactively flagged for a checkpoint despite running long across several different subtasks.
+- Roadmap additions (correctly deferred, documented rather than dropped): `foundry-update` (pulling template improvements into an already-scaffolded project), a persistent `statusLine` indicator as an alternative/complement to the SessionStart-only status message, and a note on multi-machine dismiss-state consistency if that state ever moves to personal/gitignored settings.
+
+### What was decided
+See DECISIONS.md for full entries. Summary: STACK.md built in full now rather than as a placeholder, because the per-project record is the data layer any future job-hunting tool would need regardless; the cross-project rollup stayed correctly out of scope. The status hook needed three states, not a binary, to avoid being either presumptuous (re-offering on an already-scaffolded project) or naggy (re-offering after an explicit decline). The context-checkpoint rule is framed around recognizing drift/scope sprawl, not a fixed context-percentage threshold, since the real mechanism that keeps long-running work reliable is re-anchoring on the docs after a clear, not hitting a specific number.
+
+### Verification
+- `foundry-stack`/STACK.md.template: hand-rendered against a real project's actual history (Karbot Rage — the Session 13/15 Kalshi work) at the same quality bar as the Lazy Larry reference pattern it's modeled on; confirmed the why-linkage rule produces genuinely interview-worthy notes, not technology-name restatements.
+- Status hook: all three states (scaffolded/dismissed/neither) tested with the real, JSON-embedded extracted command (not the unescaped logic) against scratch `.claude/settings.json` files, then verified again against Foundry's own real merged settings.json (both the doc-loader hook and the new status hook firing correctly together in the same `SessionStart` array).
+- Confirmed multiple independent `SessionStart` hook entries coexist correctly in the same array (tested directly) before relying on that to add Hook 3 alongside Hook 1 rather than needing to merge their commands into one.
+
+### What to do first next session
+- Run `/foundry-stack` through a real Skill-tool invocation (not hand-simulated) to close that verification gap.
+- Run the dismiss path (`foundry-init`'s "Dismissing the status hook's offer" section) through a real invocation to confirm `foundry.dismissed` actually gets written correctly, not just designed.
+- Continue with the carry-over priorities from Session 1 (promptify exercise, license decision).
+
+---
+
 ## 2026-06-28 (Session 1 — initial build)
 
 ### What was built

@@ -1,7 +1,27 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
-## 2026-06-28 — Initial build session
+## 2026-06-28 — Post-launch additions (same day as initial build)
+
+### STACK.md built in full now, not as a "lite" placeholder for a future tool
+- The user already has a working manual pattern (`jobhunting/lazy-larry/STACK.md`) and asked whether Foundry should incorporate a simplified version now, pending a separate future job-hunting tool, or build it properly now.
+- **Why:** the per-project stack record is the data layer a future aggregation/job-hunting tool would need anyway — building it as a deliberately simplified placeholder now would mean either re-deriving it properly later (wasted work) or the future tool working from sloppy data (worse outcome). The cross-project master rollup (aggregating multiple repos) is the part that's genuinely a different, separate tool's job — that stayed out of scope, but the per-project piece did not.
+- **How to apply:** when a "simplified version now vs. separate tool later" question comes up, check whether the "simplified" version is actually a different thing (skip it / build the full thing) or really is the foundation the later thing depends on (build it properly now, don't half-do it).
+
+### STACK.md requires "why this over alternatives," not just "what was used"
+- The user flagged that an early draft of STACK.md's design only covered what/when, not why — and that the why is often the most interview-valuable part.
+- **Why:** a stack entry that just names a technology gives an interviewer nothing to ask a follow-up about. The real value is in "chose X over Y because Z" — recognizing a limitation and reacting to it is the actual signal of engineering judgment, not the technology name itself.
+- **How to apply:** every non-trivial STACK.md row must either state the alternative/reason inline (if short) or cross-reference the relevant DECISIONS.md entry by date (if long) — never just a bare technology name with a notes field that restates it.
+
+### Status/offer hook added — three states, not a binary
+- Considered a simple binary ("show a message every session" vs. "show nothing") for surfacing whether a project has Foundry set up.
+- **Why:** a binary doesn't handle the real cases — a project that's already scaffolded shouldn't be re-asked; a project where the user deliberately said no shouldn't be nagged every session either. Three states (scaffolded/dismissed/neither) cover the actual decision space without being presumptuous in someone else's repo or annoying in your own.
+- **How to apply:** `foundry.scaffolded`/`foundry.dismissed` are written by `foundry-init`'s own flow (Step 2.5 and the dismiss path respectively) — the status hook only reads them, never writes them, keeping the read/write responsibility cleanly separated between the hook (cheap, runs every session) and the orchestrator (runs once, on a real user action).
+
+### Context-checkpoint discipline added as a standing CLAUDE.md rule
+- The user asked whether Foundry enforces good context-management practice (checkpointing, clearing at natural boundaries) the way it enforces verify-before-trust — prompted by noticing this build session itself had run long across several different subtasks without a proactive suggestion to checkpoint.
+- **Why:** this is the same category of thing as verify-before-trust — a good practice that depends on an assistant remembering to apply it in the moment is exactly the failure mode the SessionStart hook already exists to prevent for "read the docs." The actual mechanism that makes long-running work reliable is re-anchoring on CLAUDE.md/DECISIONS.md/SESSIONS.md after a clear, not hitting a specific context-percentage number — so the rule is framed around recognizing drift/scope sprawl, not a numeric threshold.
+- **How to apply:** added to the CLAUDE.md template's standing Rules section, so every Foundry-scaffolded project carries this expectation by default rather than only the projects where a user happens to ask about it.
 
 ### EXPLAIN_MODE added now, not deferred to roadmap
 - The user raised that newer developers need to understand *why*, not just *what*, by default — and asked whether this should be built now or deferred since "easy to add" wasn't certain.

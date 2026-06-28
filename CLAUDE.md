@@ -9,37 +9,34 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 - `jq` for hook JSON generation/validation
 
 ## Architecture
-- `skills/foundry-init/` — orchestrator; calls the others in sequence based on a questionnaire
+- `skills/foundry-init/` — orchestrator; calls the others in sequence based on a questionnaire; writes the `foundry.scaffolded`/`scaffoldedDate` marker into `.claude/settings.json` on successful completion, and `foundry.dismissed` if the user declines the status hook's offer
 - `skills/foundry-docs/` — renders `templates/*.template` into a project's CLAUDE.md/DECISIONS.md/SESSIONS.md
-- `skills/foundry-hooks/` — wires the SessionStart doc-loader hook (and secrets-guard, if applicable) into a project's `.claude/settings.json`
+- `skills/foundry-hooks/` — wires three hooks into a project's `.claude/settings.json`: Hook 1 (SessionStart doc-loader), Hook 2 (secrets-guard pre-commit, only if `HANDLES_SECRETS`), Hook 3 (status/offer — checks `foundry.scaffolded`/`foundry.dismissed`, always added)
 - `skills/foundry-security/` — `.gitignore` baseline, `.env.example` convention, already-committed-secrets check
 - `skills/foundry-repo-hygiene/` — new-repo commit sequencing, ongoing docs-freshness discipline
 - `skills/foundry-governance/` — regulatory/compliance section content, with an explicit anti-fabrication rule (states "not yet researched" rather than inventing plausible compliance language)
+- `skills/foundry-stack/` — STACK.md setup/maintenance for career/portfolio documentation (separate audience/lifecycle from the other docs); enforces a "why this over alternatives" rule on every non-trivial entry, not just "what was used"
 - `skills/promptify/` — standalone; `/promptify` and `/promptify!`, not dependent on the rest of Foundry
-- `templates/` — the actual template files the above skills render
+- `templates/` — the actual template files the above skills render (`CLAUDE.md`, `DECISIONS.md`, `SESSIONS.md`, `STACK.md`, `settings.hooks.json` [doc-loader], `settings.status.json` [status/offer])
 - `install.sh` — symlinks `skills/*` into `~/.claude/skills/`
 
 ## Current status
-- `EXPLAIN_MODE` convention added across `foundry-init` and all 5 sub-skills: an extra up-front question (brief vs. detailed/educational explanations) that, when set to detailed, makes each skill surface the "why" already documented in its own SKILL.md to the user in the moment, rather than that reasoning only existing for whoever reads the skill files directly.
-- All 7 skills written and individually verified:
-  - `foundry-docs`: hand-rendered against two scratch scenarios (minimal vs. regulated) — confirmed conditional sections render correctly
-  - `foundry-hooks`: SessionStart hook command pipe-tested with synthetic stdin, `jq -e` schema-validated, confirmed it degrades gracefully when not all 3 docs exist yet
-  - `foundry-security`: `.gitignore` merge logic tested for idempotency in a scratch repo; secrets-guard detection logic tested against a scratch repo with a real staged `.env` (blocks correctly) and a clean stage (allows correctly)
-  - `foundry-repo-hygiene`: docs-freshness `git log` pattern tested against a real repo (Karbot Rage) and produced a real, interpretable signal
-  - `foundry-init`: ran a real end-to-end test via the actual Skill tool (not hand-simulated) against two scenarios — confirmed correct branching (minimal: 1 file, 3 sections; regulated: 4 files + hook, 14 sections, honest "not yet researched" governance placeholder)
-- `install.sh`: run for real, confirmed idempotent, confirmed the harness recognized all 7 skills as available afterward
-- Not yet pushed to a remote — this is the first commit
-- README.md and docs/HOWS_AND_WHYS.md written, grounded in real examples from the build (not hypothetical)
+- `EXPLAIN_MODE` convention across `foundry-init` and all sub-skills: an up-front question (brief vs. detailed/educational explanations) that, when set to detailed, makes each skill surface the "why" already documented in its own SKILL.md to the user in the moment.
+- `foundry-stack`/STACK.md added: career/portfolio tech-stack tracking, modeled directly on a proven real pattern (the user's existing `lazy-larry/STACK.md`), with a mandatory why-linkage rule (inline reasoning or a DECISIONS.md cross-reference) so it doesn't degenerate into a list of technology names with no interview value.
+- Status/offer hook (Hook 3 in `foundry-hooks`) added: a project not yet scaffolded gets a one-line offer at session start; an already-scaffolded project gets a silent "Foundry: Active" confirmation; a dismissed project stays silent. All three states verified against the real, JSON-embedded extracted command, not just the unescaped logic.
+- Context-checkpoint rule added to the CLAUDE.md template's standing Rules: proactively suggest a SESSIONS.md/memory update + `/clear` when a session has drifted across many unrelated subtasks or run long — same category as verify-before-trust (a good practice made into a written, enforced expectation rather than left to in-the-moment judgment).
+- All 8 skills written; 7 individually verified (pipe-tested hooks, scratch-repo secrets/gitignore tests, a real git-log freshness check, an actual end-to-end `/foundry-init` Skill-tool run against two scenarios). `foundry-stack` verified by hand-rendering against a real project's actual history (Karbot Rage) at the same quality bar as the reference pattern it's modeled on.
+- Pushed to `github.com/WarpedMind/foundry` (public) and installed at `~/.claude/skills/` — both confirmed working.
 
 ## KNOWN DEBT
 - No license chosen yet — needed before any public announcement/release
-- Repo visibility (public/private) and remote not yet confirmed with the user as of this commit
 - Promptify's "prompt shape" classification logic has not been tested against a range of real rough inputs yet — only designed, not exercised
 - foundry-governance and foundry-security have been verified at the mechanism level (hook logic, detection patterns) but not yet exercised through a real multi-step Skill invocation the way foundry-init was
+- foundry-stack has not yet been exercised through a real Skill invocation either — verified by hand-rendering against real project history, not by running the skill itself end-to-end
+- See README.md's Roadmap section for explicitly deferred features (proactive review agents, `foundry-update`, persistent statusLine indicator, pluggable external skill packs)
 
 ## Next session priorities (in order)
-- Confirm repo name/visibility with the user and push the initial commit
-- Exercise `/promptify` against a handful of real rough prompts to validate the shape-classification logic
+- Exercise `/promptify`, `/foundry-stack`, and the status hook's dismiss path through real Skill-tool invocations (not hand-simulated) to close the remaining verification gaps above
 - Decide on a license
 - Consider whether foundry-docs needs a literal IF-block parser/instruction refinement after more real-world use, or whether the current "follow these steps" Markdown instruction has proven sufficient
 

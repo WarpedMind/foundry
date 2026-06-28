@@ -1,0 +1,48 @@
+# {{PROJECT_NAME}} — Tech Stack History
+
+> Purpose: a fast, accurate reference for *what was actually used, when* — written so it can be pulled directly into a resume bullet, a skills list, or an interview answer ("walk me through your stack"). This is a career asset, not an engineering-process doc.
+>
+> Distinct from DECISIONS.md (the *why* behind a choice) and SESSIONS.md (the session-by-session narrative) — this doc exists purely to answer "what tools/languages/platforms have hands-on, verified use in this project, and since when." Update it any time a tool is added, replaced, or retired — see CLAUDE.md's Rules section for the update discipline.
+>
+> Verification discipline: only list something here as "in use" once it has been confirmed running (actually executed, not just written) — not the moment code referencing it is written. Items written but not yet verified should be marked "pending verification" until proven, or left off entirely.
+
+---
+
+## Current stack
+<!-- One row per technology actually verified running. Add a "Since" version/date marker so later entries can show progression. Notes should capture *why this over the alternatives*, not just what it is — name the alternative considered/replaced inline if it fits in a clause, or cross-reference the relevant DECISIONS.md entry by date if the reasoning is longer. A notes field that just repeats the technology name or category is not pulling its weight. -->
+
+| Category | Technology | Since | Notes |
+|---|---|---|---|
+
+---
+
+## Planned / not yet built
+<!-- Things you intend to add later, with a target milestone. Move a row up to "Current stack" only once verified running, never before. -->
+
+| Category | Technology | Target version/milestone | Notes |
+|---|---|---|---|
+
+---
+
+## Version/milestone snapshots
+<!-- One subsection per meaningful version or milestone. The "what this demonstrates" line is the part that actually gets used in an interview — write it for that audience specifically. -->
+
+### {{FIRST_MILESTONE_NAME}} ({{FIRST_MILESTONE_DATE}})
+- **Stack at this point:** —
+- **What this version demonstrates:** —
+
+---
+
+## Skills gap — tools to incorporate in future work
+<!-- Technologies that came up in job postings, industry conversations, or your own roadmap that aren't in this project yet. Optional section — skip entirely if not relevant to this project's purpose. -->
+
+| Tool / Technology | Why it matters | Target project / version |
+|---|---|---|
+
+---
+
+## How to use this for job hunting
+<!-- Optional section. Fill in once the project has enough real history to be worth speaking to. -->
+- **Resume bullet seed:** —
+- **Skills list, accurate as of {{LATEST_VERSION}}:** —
+- **The "why this matters" framing for interviews:** —
