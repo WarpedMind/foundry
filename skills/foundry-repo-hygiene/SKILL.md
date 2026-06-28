@@ -44,4 +44,4 @@ This isn't something a hook can fully enforce (a hook can't judge whether a READ
 
 ## Verification (for this skill's own setup logic)
 
-The `.gitignore`-before-first-commit sequencing and the "stage specific files, not `-A`" rule were checked against the same git-safety standing instructions already in use elsewhere (see Karbot Rage's CLAUDE.md "Git" section for the precedent) — not a new invented rule, just made explicit and sequenced correctly here.
+The `.gitignore`-before-first-commit sequencing and the "stage specific files, not `-A`" rule were checked against the same git-safety standing instructions already in use elsewhere (the same git-safety conventions documented in another of the user's projects) — not a new invented rule, just made explicit and sequenced correctly here.

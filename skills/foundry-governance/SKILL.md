@@ -16,8 +16,8 @@ If invoked standalone (not via `foundry-init` right after `foundry-docs` created
 ## Steps
 
 1. **Ask, don't assume.** Find out specifically:
-   - What regulatory body or framework actually applies (e.g. "CFTC" not "financial regulations" — Karbot Rage's CLAUDE.md names the actual letter number and date of the relevant CFTC guidance, which is the right level of specificity).
-   - What the project must NOT do as a result (e.g. Karbot Rage: "no MNPI, Kalshi only Phase 1" — concrete, checkable constraints, not abstract principles).
+   - What regulatory body or framework actually applies (e.g. "CFTC" not "financial regulations" — a real trading-bot project's CLAUDE.md names the actual letter number and date of the relevant CFTC guidance, which is the right level of specificity).
+   - What the project must NOT do as a result (e.g. a real prediction-market trading bot: "no MNPI, one exchange only in Phase 1" — concrete, checkable constraints, not abstract principles).
    - Whether there's a designated compliance contact, a logging requirement, or specific documentation the regulator expects to see.
 
 2. **If the user doesn't know the specifics yet**, do not fabricate plausible-sounding regulatory language to fill the gap. Write the section honestly as: "Regulatory context not yet researched — do not treat this project as compliant until this section is filled in with verified, specific requirements." A known gap, stated plainly, is safer than confident-sounding filler that nobody will think to double check later.
@@ -25,7 +25,7 @@ If invoked standalone (not via `foundry-init` right after `foundry-docs` created
 3. **Audit trail / compliance logging conventions**, if the questionnaire flagged `HANDLES_DATA_OR_MONEY`:
    - Identify what specific events need to be logged for compliance purposes (trades? rejections? access to PII? all of the above?) — ask, don't assume "everything."
    - Specify where this log lives and its durability guarantee (append-only file? database table? — and is it backed up?).
-   - State explicitly whether this logging is "never optional" (i.e. a code path that skips it is a bug) — Karbot Rage's standing rule ("All trades, rejections, and leg failures must hit the audit trail — compliance logging is never optional") is the right level of forcefulness when it's actually true for the project.
+   - State explicitly whether this logging is "never optional" (i.e. a code path that skips it is a bug) — a real trading-bot project's standing rule ("All trades, rejections, and leg failures must hit the audit trail — compliance logging is never optional") is the right level of forcefulness when it's actually true for the project.
 
 4. **Write the REGULATORY CONTEXT section into CLAUDE.md** (coordinate with `foundry-docs`, which left this section's placeholder) with: the current state of relevant regulation/guidance (with dates, since regulatory guidance changes — don't write it as eternally true), what the project does to stay compliant, and any monitoring step (e.g. "operator should periodically check X for updates").
 

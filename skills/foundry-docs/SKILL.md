@@ -16,7 +16,7 @@ Before rendering or writing anything: check whether `CLAUDE.md`, `DECISIONS.md`,
 1. **Stop. Do not render or write yet.** Read the existing file(s) in full.
 2. Tell the user plainly what already exists (e.g. "This project already has a CLAUDE.md with real content — running foundry-docs would overwrite it with template scaffolding unless we handle this carefully.").
 3. Ask explicitly, via `AskUserQuestion`, what to do for each existing file:
-   - **Leave it alone** — don't touch this file at all. (Almost always the right choice for an already-mature, hand-maintained CLAUDE.md like Karbot Rage's — it has real architecture notes, real status, real history that no template can regenerate.)
+   - **Leave it alone** — don't touch this file at all. (Almost always the right choice for an already-mature, hand-maintained CLAUDE.md — it has real architecture notes, real status, real history that no template can regenerate.)
    - **Append a Foundry-standard section** (e.g. add a "Rules / Never do" entry about verify-before-trust if missing) without touching the rest of the file — a surgical addition, not a rewrite.
    - **Full re-render from the template**, using the existing file's content as the source for what goes in each section (a real migration, not a blank slate) — only do this if the user explicitly asks for it, understanding it's higher-effort and higher-risk than the other two options. Before writing anything for this option, see the mandatory pre-migration diff check below — a full re-render is not safe to do in one shot.
 4. Never default to overwriting. If the user doesn't give a clear answer, the safe default is "leave it alone" — a missing Foundry convention is recoverable; a destroyed CLAUDE.md with months of real history is not.

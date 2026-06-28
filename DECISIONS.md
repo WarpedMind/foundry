@@ -1,6 +1,15 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — Cross-project drift mechanism: written rule shipped, hook deferred unverified
+
+### Don't write a hook against a guessed payload shape, even when the hook event itself is confirmed real
+- The user identified a genuine gap: this very conversation started in an earlier, unrelated project, then drifted into Foundry's own work for hours with nothing flagging the handoff — exactly the scenario where stale/cross-project context bleed is most likely. The natural fix is a `CwdChanged` hook. `CwdChanged` is confirmed as a real, valid Claude Code hook event (present in the settings schema enum) — but attempting to verify its actual stdin payload shape (does it provide old/new cwd explicitly?) found that it can't be pipe-tested with synthetic input the way `Bash`/`Write` hooks can; it requires a genuine harness-level directory-change event to fire.
+- **Why:** writing bash logic against a guessed payload shape and calling it done would be the exact same mistake independently caught and fixed in Session 4 — a "this should work" claim with no real verification behind it, for a hook whose only job is to fire reliably and correctly.
+- **How to apply:** shipped the weaker, written-rule-only half of this idea now (the CLAUDE.md template's context-checkpoint rule extended with an explicit directory-change trigger, alongside the existing session-length trigger) since that's verifiable today — a written instruction either is or isn't in the file. The actual hook stays explicitly on the roadmap as designed-but-unverified, with the specific blocker stated (payload shape unconfirmed), rather than either building it on a guess or pretending the idea was dropped.
+
+---
+
 ## 2026-06-28 — Build-from-scratch promptify mode added; cost claim corrected
 
 ### Bare `/promptify` (no arguments) added as a third, distinct mode
@@ -67,7 +76,7 @@
 ## 2026-06-28 — Post-launch additions (same day as initial build)
 
 ### STACK.md built in full now, not as a "lite" placeholder for a future tool
-- The user already has a working manual pattern (`jobhunting/lazy-larry/STACK.md`) and asked whether Foundry should incorporate a simplified version now, pending a separate future job-hunting tool, or build it properly now.
+- The user already has a working manual pattern (a STACK.md from one of their other projects) and asked whether Foundry should incorporate a simplified version now, pending a separate future job-hunting tool, or build it properly now.
 - **Why:** the per-project stack record is the data layer a future aggregation/job-hunting tool would need anyway — building it as a deliberately simplified placeholder now would mean either re-deriving it properly later (wasted work) or the future tool working from sloppy data (worse outcome). The cross-project master rollup (aggregating multiple repos) is the part that's genuinely a different, separate tool's job — that stayed out of scope, but the per-project piece did not.
 - **How to apply:** when a "simplified version now vs. separate tool later" question comes up, check whether the "simplified" version is actually a different thing (skip it / build the full thing) or really is the foundation the later thing depends on (build it properly now, don't half-do it).
 

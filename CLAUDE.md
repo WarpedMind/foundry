@@ -22,7 +22,7 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 
 ## Current status
 - `EXPLAIN_MODE` convention across `foundry-init` and all sub-skills: an up-front question (brief vs. detailed/educational explanations) that, when set to detailed, makes each skill surface the "why" already documented in its own SKILL.md to the user in the moment.
-- `foundry-stack`/STACK.md added: career/portfolio tech-stack tracking, modeled directly on a proven real pattern (the user's existing `lazy-larry/STACK.md`), with a mandatory why-linkage rule (inline reasoning or a DECISIONS.md cross-reference) so it doesn't degenerate into a list of technology names with no interview value.
+- `foundry-stack`/STACK.md added: career/portfolio tech-stack tracking, modeled directly on a proven real pattern from one of the user's other projects, with a mandatory why-linkage rule (inline reasoning or a DECISIONS.md cross-reference) so it doesn't degenerate into a list of technology names with no interview value.
 - Status/offer hook (Hook 3 in `foundry-hooks`) added: a project not yet scaffolded gets a one-line offer at session start; an already-scaffolded project gets a silent "Foundry: Active" confirmation; a dismissed project stays silent. All three states verified against the real, JSON-embedded extracted command, not just the unescaped logic.
 - Context-checkpoint rule added to the CLAUDE.md template's standing Rules: proactively suggest a SESSIONS.md/memory update + `/clear` when a session has drifted across many unrelated subtasks or run long — same category as verify-before-trust (a good practice made into a written, enforced expectation rather than left to in-the-moment judgment).
 - **Independent safety review completed (Session 4)**: a fresh subagent with no prior context reviewed every skill cold, specifically hunting for destructive/silent actions. Found 14 issues, 2 CRITICAL (both involving security-relevant regex/glob patterns that the skill prose claimed were "tested" but actually missed realistic filenames — verified by reproducing the failure independently before fixing). All CRITICAL and most HIGH/MEDIUM findings fixed and re-verified against adversarial fixture sets; remaining lower-severity findings explicitly tracked in README.md's Roadmap, none silently dropped.
@@ -59,6 +59,7 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 - If README.md describes a feature, command, or setup step that no longer matches reality, fix the README in the same change — don't leave it to drift
 - Don't add a new composable skill without updating this CLAUDE.md's Architecture section in the same change
 - Update STACK.md whenever a technology is added, replaced, retired, or reaches a milestone worth recording — and only mark something "in use" once actually verified running, not when first written
+- Proactively suggest a checkpoint when EITHER (a) the session has covered several unrelated subtasks or run long, OR (b) the working directory has changed to a genuinely different project than where the session started — (b) is a stronger signal than (a) and shouldn't wait for (a) to also be true. To checkpoint: update SESSIONS.md/memory with current state, then suggest `/clear` before continuing.
 
 ## How to run / Bash commands
 - Install: `./install.sh`
