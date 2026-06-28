@@ -1,6 +1,38 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 4 — independent safety review, destructive-action audit)
+
+### What was built
+- **Two real overwrite gaps closed**, found by the user noticing what I'd missed: `foundry-docs` previously had no check for existing CLAUDE.md/DECISIONS.md/SESSIONS.md before writing — running it on a real project (e.g. one with months of hand-maintained docs) would have silently clobbered them with template scaffolding. Added Step 0: read existing files first, ask per-file whether to leave alone/append/fully re-render, default to "leave alone." Same gap found and fixed in `foundry-governance` (regulatory content) and `foundry-stack` (STACK.md).
+- **Location safety added**: `foundry-init` previously had no check for whether the current directory was an actual project root vs. a container folder holding multiple projects (e.g. `~/Projects/`) — running it in the wrong place could have scaffolded a confusing mess at the wrong level. Added Step -1 with a concrete, tested command (`for d in */; do [ -d "${d}.git" ] && echo "$d"; done | wc -l` — verified to return 0 in a real project root and 4 in a real multi-project container) rather than relying on judgment alone.
+- **README "Safety" section added**, explaining non-destructiveness, scope (single directory only), and full reversibility of turning Foundry off — written because the user asked directly "what happens if someone turns this off, will their docs break" and the honest answer (no, they're just plain Markdown) needed to be stated somewhere visible, not just true by accident.
+- **Independent safety review commissioned**: spawned a fresh subagent with zero context on how/why Foundry was built, instructed to read every skill cold as a skeptical reviewer hunting specifically for silent/irreversible actions, unclear blast radius, ambiguous instructions, unchecked assumptions, and skills stepping on each other. This is the same "oversight instance" pattern discussed earlier in this work (a second set of eyes with no stake in the existing design). The review found 14 distinct issues, 2 of them CRITICAL and independently *verified* by live-testing the actual regex/glob patterns against adversarial filenames, not just inspecting the prose.
+- **Both CRITICAL findings fixed and re-verified**:
+  - The secrets-guard commit hook's regex (`foundry-hooks` Hook 2) missed `secrets.env`, `.env.production.local`, `config.yaml.bak`, `real.key.txt` — confirmed independently by reproducing the reviewer's exact test. Replaced with a broader pattern, then verified myself against an 18-file adversarial fixture (both directions: catches real secret-like names with suffixes/prefixes/nested paths; does not false-positive on `secretary_notes.txt`, `api_keynote.md`, `keyboard_shortcuts.md`, `monkey.py`, `the_keymaster.rb`, `.env.example`).
+  - The `.gitignore` baseline (`foundry-security`) had the same root-cause gap, plus a distinct one (gitignore glob syntax can't word-boundary-match the way regex can, so a naive `*secret*` glob would have falsely ignored `secretary_notes.txt`). Iterated through 4 versions of the pattern set, testing each against `git check-ignore` directly, before landing on one that passes all 19 fixture cases in both directions.
+  - The already-committed-secrets check (`foundry-security` step 3) only searched a fixed filename list — added a broader historical scan (`git log --all --diff-filter=A --name-only ... | grep -iE 'env|secret|key|pem|cred|password|token|config'`) as a second pass, tested against a real repo (Karbot Rage) to confirm it produces a sane, reviewable candidate list rather than noise.
+- **5 of the remaining HIGH/MEDIUM findings fixed**: a mandatory pre-migration diff check before any "full re-render" of an existing doc (prevents lossy reformatting even when the user consents to a redo); collaborator/shared-repo checks tightened before recommending git history rewrite; sequencing ambiguity between `foundry-repo-hygiene` and `foundry-security`'s `.gitignore` step clarified; explicit "no parallel sub-skill execution" stated for the shared `{{ADDITIONAL_RULES}}` write; a documented re-enable path for a dismissed status hook (confirmed against the actual hook logic — `scaffolded` is checked before `dismissed`, so re-running `/foundry-init` is sufficient, no separate "undismiss" needed).
+- **2 findings extended into a real mechanism rather than just fixed in place**: added `foundry.scaffoldMode` ("minimal" vs. "full") written by `foundry-init`, and wired `foundry-repo-hygiene`'s existing freshness-check skill to flag (a) a "minimal"-mode project that may have outgrown that original choice, and (b) a REGULATORY CONTEXT section whose stated date is getting old — neither existed as a mechanism before, only as static content with no periodic recheck.
+- **2 lower-severity findings deferred to roadmap, not silently dropped**: hardening the SessionStart hook templates' shell substitution against unquoted word-splitting (safe today since filenames are hardcoded, flagged as a latent issue if ever generalized), and `foundry-stack` cross-checking CLAUDE.md's compliance section for confidentiality language before offering portfolio tracking.
+
+### What was decided
+- Confirmed (don't just assume) every fix by reproducing the failure first, then testing the fix against an adversarial fixture set in both directions — not just the one case that was reported. This caught additional gaps the independent review itself didn't surface (e.g. the `.gitignore` glob version of the regex fix initially still had its own distinct false-positive on `secretary_notes.txt`, found only by testing it separately rather than assuming the regex fix's logic would transfer).
+- Treated the independent review's findings as a real audit, not a suggestion box: every CRITICAL/HIGH finding was either fixed or explicitly, visibly deferred with a stated reason — none were silently dropped, per the user's explicit request to "cover our butts in documentation as well."
+- This entire session was prompted by the user catching two real risks (existing-file overwrite, wrong-directory scaffolding) that had not been caught despite this tool already having gone through two prior build sessions and an end-to-end test — a concrete demonstration of why a second, differently-motivated reviewer (human or a fresh agent) catches things the original builder's familiarity blinds them to.
+
+### Verification
+- Both CRITICAL regex/glob fixes verified against real adversarial fixture sets (18-25 files each, covering both false-negative and false-positive directions) using the actual commands as they appear in the skill files, not simplified versions.
+- The location-safety command verified against two real directories on this machine: returns 0 in an actual project root, 4 in an actual multi-project container.
+- The broader historical-secrets-scan command verified against a real repo (Karbot Rage) to confirm it produces a usable, non-noisy candidate list.
+- The `foundry.dismissed`/`foundry.scaffolded` re-enable claim verified by re-reading the actual hook template's conditional logic, not assumed from memory.
+
+### What to do first next session
+- The remaining un-actioned medium/low findings are now tracked in README.md's Roadmap — pick up from there.
+- Still the standing top priority from prior sessions: run `/foundry-init` on a real, non-scratch project for the first time.
+
+---
+
 ## 2026-06-28 (Session 3 — license, public-release readiness)
 
 ### What was built

@@ -54,7 +54,7 @@ Present the rewritten prompt + explanation (still — this is never skipped), th
 
 ## Improving over time
 
-If the user gives feedback on a rewrite (either direction — "that was too verbose" or "that was exactly right"), treat it the same way any standing feedback would be treated: it should inform future rewrites of similar-shaped requests, not just this one. If a durable pattern emerges (e.g. "for this user, debugging prompts should always include 'what have you already ruled out'"), that's worth persisting as a preference, not re-deriving each time.
+If the user gives feedback on a rewrite (either direction — "that was too verbose" or "that was exactly right"), treat it the same way any standing feedback would be treated: it should inform future rewrites of similar-shaped requests, not just this one. If a durable pattern emerges (e.g. "for this user, debugging prompts should always include 'what have you already ruled out'"), that's worth persisting as a preference, not re-deriving each time — using whatever cross-session memory mechanism is available (e.g. Claude Code's memory system), scoped as a general user preference about prompt style, not as project-specific content. Be deliberate about scope: a preference about *how the user likes prompts structured* is reasonably general and safe to apply across projects; anything that's actually specific to one project's domain or conventions should stay local to that project (e.g. in its own CLAUDE.md) rather than being written to global/cross-project memory, where it would leak into unrelated future work.
 
 ## Standalone use
 

@@ -1,6 +1,25 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — Independent safety review before public release
+
+### Do not trust "tested" claims in skill prose without re-verifying the actual command
+- The secrets-guard hook's SKILL.md claimed it was "tested against a scratch repo: blocks when `.env` is staged, allows when only safe files are staged" — true for that one case, but an independent review found the regex missed `secrets.env`, `.env.production.local`, `config.yaml.bak`, and `real.key.txt`, all realistic filenames.
+- **Why:** a narrow test that only checks the one obvious case can pass while the underlying logic is still broken for adjacent realistic inputs. The prose claim of "verified" created false confidence in exactly the same way `foundry-governance`'s anti-fabrication rule warns against for compliance sections — an unverified-but-confident claim is worse than an honest "not yet tested," because nobody thinks to double-check it.
+- **How to apply:** going forward, any claim of "tested"/"verified" in a SKILL.md must be backed by a real adversarial fixture set (both false-negative and false-positive directions), not a single happy-path check — and that fixture set should be described in the SKILL.md itself (as the secrets-guard and `.gitignore` sections now do) so a future reader can see exactly what was checked, not just trust the word "verified."
+
+### Commission a genuinely independent reviewer before public release, not just a self-review
+- After fixing two destructive-action gaps the user personally caught (existing-file overwrite, wrong-directory scaffolding), did a careful self-review pass, then spawned a fresh subagent with zero prior context to independently hunt for the same class of risk.
+- **Why:** the agent that built a system is structurally bad at finding its own blind spots — by the time you've written something, you've already convinced yourself the obvious failure modes are handled, which is exactly when you stop looking for non-obvious ones. A reviewer with no context, no investment in the existing design, and explicit instructions to be skeptical caught real things (a second instance of the regex/glob gap, a lossy-migration risk in full re-renders, sequencing ambiguity between two skills, a missing recovery path for outgrown "minimal" projects) that two rounds of this same builder's own review had missed.
+- **How to apply:** before any future public release or major version of Foundry (or any other project), commission this same pattern — a fresh, context-free, explicitly skeptical review — rather than relying solely on the builder's own re-read, no matter how careful that re-read feels in the moment.
+
+### Every finding gets fixed or explicitly, visibly deferred — never silently dropped
+- The independent review produced 14 findings of varying severity. Given the volume, there was a real temptation to fix the obvious top few and let the rest fade into "we looked into it."
+- **Why:** the user explicitly asked for this not to happen ("cover our butts in documentation as well") — and the cost of silently dropping a known-but-unfixed risk is that nobody, including future sessions, will know it was ever found, so it never gets revisited.
+- **How to apply:** every finding from a safety/security review gets one of two outcomes, both visible: fixed now (with verification), or explicitly added to README.md's Roadmap with the reason it's deferred and which review caught it. Nothing gets quietly forgotten.
+
+---
+
 ## 2026-06-28 — Post-launch additions (same day as initial build)
 
 ### STACK.md built in full now, not as a "lite" placeholder for a future tool

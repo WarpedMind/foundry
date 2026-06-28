@@ -9,6 +9,10 @@ This skill exists specifically to resist generic compliance theater — section 
 
 **`EXPLAIN_MODE`** (set by `foundry-init`, or ask if standalone): in `detailed` mode, say the above paragraph's reasoning to the user before writing an honest placeholder, so a "not yet researched" section doesn't read as the assistant having failed at the task — it's a deliberate choice. In `brief` mode, just write the section.
 
+## Step 0 — check for existing governance content first (mandatory)
+
+If invoked standalone (not via `foundry-init` right after `foundry-docs` created a fresh placeholder), check whether CLAUDE.md already has a REGULATORY CONTEXT or COMPLIANCE / AUDIT TRAIL section with real content — not the placeholder text this skill itself writes. If it does, this is the same class of risk as `foundry-docs` overwriting a hand-maintained CLAUDE.md: **do not regenerate or overwrite it.** Read it, tell the user what's already there, and ask whether to leave it alone, append to it, or fully redo it — same three options and same "leave alone" default as `foundry-docs`'s Step 0. Only proceed to the steps below for a section that's genuinely a fresh placeholder or doesn't exist yet, or that the user explicitly asked to redo.
+
 ## Steps
 
 1. **Ask, don't assume.** Find out specifically:

@@ -13,6 +13,8 @@ Covers two things that are easy to get backwards or let slide silently: how a re
 
 The common mistake this prevents: writing code first, committing it, *then* adding `.gitignore` and security rules — by which point a secret may already be in history (see `foundry-security` step 3 for what to do if that's already happened).
 
+**Check first whether this is even a git repo yet** (`git rev-parse --is-inside-work-tree` or equivalent). If not, and the project is meant to be version-controlled, `git init` is step 1 below, not assumed already done. If the user has deliberately chosen not to use git for this project, skip the git-specific steps below entirely (the doc/hook scaffolding still applies fine without git) rather than forcing a `git init` they didn't ask for.
+
 **Correct order for a brand-new project:**
 1. `git init`
 2. Write/merge `.gitignore` (via `foundry-security`, if the project handles secrets) — **before the first `git add`**, not after.
@@ -36,7 +38,9 @@ This isn't something a hook can fully enforce (a hook can't judge whether a READ
 1. Check `git log -1 --format=%ci -- README.md` vs. `git log -1 --format=%ci` (most recent commit overall) — if the gap is large relative to the project's commit cadence, flag it as a candidate for review (not an automatic failure — a stable README that hasn't needed changes isn't necessarily stale).
 2. Read README.md's stated "how to run" / setup commands and actually try them (or at minimum check the referenced files/scripts still exist) — a command that references a deleted file is a concrete, checkable staleness signal, not a guess.
 3. Check whether CLAUDE.md's "Current status" section references things (files, agents, features) that still exist in the codebase — grep for the named files/symbols.
-4. Report findings plainly; don't auto-fix without showing the user what's stale and why first.
+4. **If CLAUDE.md has a REGULATORY CONTEXT or COMPLIANCE/AUDIT TRAIL section** (written by `foundry-governance`), explicitly include it in this check — regulatory guidance changes over time and that section is dated for exactly this reason, but nothing else in Foundry ever resurfaces it for review. Check the date stated in that section against today; if it's been more than a few months (use judgment based on how fast-moving the relevant regulatory area is — ask the user if unsure), flag it specifically as "this compliance section was written on X and may be stale — worth re-verifying with the relevant regulatory source before continuing to rely on it," not just lumped in with general doc staleness.
+5. **If the project was originally scaffolded via the minimal/throwaway fast-path** (check `foundry.scaffoldMode` in `.claude/settings.json`, if present) but now has real complexity (handles secrets, has grown significantly, etc.), flag this explicitly: "this project was scaffolded as a quick/minimal setup — if it's become a real project now, consider re-running `/foundry-init` for the full questionnaire (security baseline, etc.)." This is the only mechanism that catches a throwaway script that quietly became a real project with no security baseline.
+6. Report findings plainly; don't auto-fix without showing the user what's stale and why first.
 
 ## Verification (for this skill's own setup logic)
 

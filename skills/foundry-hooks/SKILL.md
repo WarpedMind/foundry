@@ -7,6 +7,8 @@ description: Wire a SessionStart doc-loader hook, a status/offer hook, and (if t
 
 Wires hooks into the current project's `.claude/settings.json` (the shared, committed settings file — not `.claude/settings.local.json`, which is personal/gitignored).
 
+**Locating Foundry's templates** (needed for every hook below): this skill reads template files from this Foundry checkout. Check `~/Projects/foundry/templates/` first — if not found there (e.g. a different install location on this machine), ask the user where Foundry is checked out before proceeding. Never guess or skip a template silently if the path can't be found.
+
 **`EXPLAIN_MODE`** (set by `foundry-init`, or ask if standalone): in `detailed` mode, explain before wiring Hook 1 that this exists because a written instruction to "always read these docs" has actually been observed to get silently skipped — a hook makes it the harness's job, not the assistant's memory. In `brief` mode, just wire it.
 
 ## Hook 1: SessionStart doc-loader (always add this)
@@ -28,15 +30,17 @@ Generalizes "before every commit, confirm no `.env`/config/`*.pem` staged" from 
 
 **Steps:**
 1. Only offer this if `HANDLES_SECRETS` was true in the foundry-docs questionnaire (or ask directly if invoked standalone).
-2. Build a `PreToolUse` hook matching `Bash`, with an `if` filter scoped to `git commit` invocations, that checks staged files against a forbidden pattern. Verified detection logic (tested against a scratch repo: blocks when `.env` is staged, allows when only safe files are staged):
+2. Build a `PreToolUse` hook matching `Bash`, with an `if` filter scoped to `git commit` invocations, that checks staged files against a forbidden pattern.
+
+   **Do not use a narrow exact-suffix regex** (an earlier version of this hook used `(^|/)(\.env|.*\.pem|.*\.key|config\.yaml)$`, which an independent security review caught and verified misses realistic real-world filenames: `secrets.env`, `.env.production.local`, `config.yaml.bak`, and `real.key.txt` all sailed through unflagged in a live test, because the regex required the dangerous token to be the literal filename suffix with nothing after it). Use this broader, independently re-tested pattern instead — verified against a 21-file adversarial fixture set covering both directions (catches secret-like names with extra suffixes and nested paths; does NOT false-positive on legitimate files like `.env.example`, `secretary_notes.txt`, `api_keynote.md`, `keyboard_shortcuts.md`, `monkey.py`, `the_keymaster.rb`):
    ```bash
    STAGED=$(git diff --cached --name-only)
-   FORBIDDEN=$(echo "$STAGED" | grep -E '(^|/)(\.env|.*\.pem|.*\.key|config\.yaml)$')
+   FORBIDDEN=$(echo "$STAGED" | grep -vE '(^|/)\.env\.example$' | grep -iE '(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|config[^/]*\.ya?ml(\.[^/]*)?$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)')
    if [ -n "$FORBIDDEN" ]; then echo "BLOCKED: forbidden files staged: $FORBIDDEN"; exit 1; fi
    ```
-   Extend the pattern with any project-specific real-config filename named in CLAUDE.md's Security Rules section (e.g. if the project uses a different secrets file name than the defaults above).
-3. Validate this hook the same way before writing it: pipe-test with synthetic stdin matching a `Bash`/`git commit` tool call, confirm it blocks when a forbidden file is staged (test in a scratch git repo, not the real project) and allows when it isn't.
-4. This is a safety net, not a replacement for the user's own judgment — state that plainly when presenting it, don't oversell it as foolproof (e.g. it won't catch secrets pasted into a non-matching filename, or already-committed secrets).
+   Extend the pattern with any project-specific real-config filename named in CLAUDE.md's Security Rules section (e.g. if the project uses a different secrets file name than the defaults above) — but never narrow the existing alternatives, only add to them.
+3. Validate this hook the same way before writing it: pipe-test with synthetic stdin matching a `Bash`/`git commit` tool call. Do not just test the one obvious case — build a small adversarial fixture set in a scratch repo first (secret-like filenames with extra suffixes/nested paths, AND legitimate filenames that merely contain substrings like "key"/"secret"/"env") and confirm the hook gets every case right in both directions before trusting it. A claim of "tested" that only checks the single easy case is not real verification — this is precisely the gap an outside reviewer found in this hook's first version.
+4. This is a safety net, not a replacement for the user's own judgment — state that plainly when presenting it, don't oversell it as foolproof (e.g. it won't catch secrets pasted into a non-matching filename, secrets hardcoded inside otherwise-legitimate source files, or already-committed secrets).
 
 ## Hook 3: status/offer hook (always add this, even when invoked standalone outside foundry-init)
 

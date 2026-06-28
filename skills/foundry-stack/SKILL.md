@@ -7,6 +7,8 @@ description: Set up and maintain a STACK.md — a career-documentation record of
 
 STACK.md answers a different question than every other Foundry doc. CLAUDE.md/DECISIONS.md/SESSIONS.md exist so an assistant (and the user, secondarily) can stay oriented on a project *while it's active*. STACK.md exists so the user, much later — in an interview, writing a resume bullet, prepping for a recruiter call — can answer "what did you actually build with, and what did it demonstrate" without having to reconstruct it from memory or git log. Different audience, different lifecycle (this outlives the project being actively worked on).
 
+**Locating Foundry's templates**: this skill reads `templates/STACK.md.template` from this Foundry checkout. Check `~/Projects/foundry/templates/` first — if not found there (e.g. a different install location on this machine), ask the user where Foundry is checked out before proceeding.
+
 **`EXPLAIN_MODE`** (set by `foundry-init`, or ask if standalone): in `detailed` mode, state the above distinction before setting this up, so it's clear why this isn't redundant with DECISIONS.md. In `brief` mode, just set it up.
 
 ## Is this project a fit for STACK.md?
@@ -15,6 +17,7 @@ Not every project needs this — ask, don't assume. Good fit: portfolio projects
 
 ## Setting up STACK.md (new project)
 
+0. **Check first whether `STACK.md` already exists.** If it does, this is the same risk class as `foundry-docs` overwriting an existing CLAUDE.md: do not regenerate it from the template. Read the existing file in full, tell the user what's already there, and ask whether to leave it alone, append a new entry (the normal "updating" flow below), or fully redo it — defaulting to "leave alone" if unclear. Only proceed to step 1 below for a project that genuinely has no STACK.md yet, or where the user explicitly asked for a full redo.
 1. Read `templates/STACK.md.template`.
 2. Substitute `{{PROJECT_NAME}}`. Leave `{{FIRST_MILESTONE_NAME}}`/`{{FIRST_MILESTONE_DATE}}` as a real first entry if the project already has a v1/initial version worth recording, or leave the snapshot section with just the template's empty structure if this is truly day one.
 3. Do not pre-fill the "Current stack" table speculatively — it should only ever contain things actually verified running, even at setup time. If nothing has been verified yet, leave it empty with just the header row.
