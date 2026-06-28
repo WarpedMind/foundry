@@ -1,0 +1,60 @@
+# {{PROJECT_NAME}}
+
+## What this is
+{{WHAT_THIS_IS}}
+
+## Stack
+{{STACK}}
+
+<!-- IF HANDLES_SECRETS -->
+## SECURITY RULES — non-negotiable, apply to every session
+
+### Secrets
+- Credentials load from environment variables only — never from config files, never hardcoded
+- {{SECRETS_CONFIG_LOCATION}} is the only place secrets are read from environment
+- Agents/modules read credentials via the secrets config object — never `os.environ`/`process.env` directly in business logic
+- Any config file containing real values is in `.gitignore` — only a `.example` version is committed
+- `.env` is in `.gitignore` — never committed under any circumstances
+
+### Logs
+- No credential values, API keys, tokens, or private key paths in any log output at any level
+- Sensitive payloads (prompts to external APIs, user PII) logged at DEBUG only, never INFO or above
+
+### Git
+- Before every commit: confirm no `.env`, no real config file, no `*.pem`/`*.key` in staged files
+- If a secret is ever accidentally committed: rotate the credential immediately, then remove from git history (`git filter-repo` or equivalent)
+<!-- ENDIF HANDLES_SECRETS -->
+
+## Architecture
+{{ARCHITECTURE}}
+
+## Current status
+{{CURRENT_STATUS}}
+
+<!-- IF REGULATED -->
+## REGULATORY CONTEXT
+{{REGULATORY_CONTEXT}}
+<!-- ENDIF REGULATED -->
+
+<!-- IF HANDLES_DATA_OR_MONEY -->
+## COMPLIANCE / AUDIT TRAIL
+- {{AUDIT_TRAIL_NOTE}}
+- All state-changing actions (writes, transactions, external calls with side effects) should be traceable after the fact — log what happened, when, and why, not just that something succeeded.
+<!-- ENDIF HANDLES_DATA_OR_MONEY -->
+
+## KNOWN DEBT
+{{KNOWN_DEBT}}
+
+## Next session priorities (in order)
+{{NEXT_PRIORITIES}}
+
+## Rules / Never do
+- Read CLAUDE.md, DECISIONS.md, and SESSIONS.md at the start of every session and stay anchored to them (this is enforced by a SessionStart hook — see `.claude/settings.json` — but state it here too as the source of truth)
+- Verify external claims (API behavior, docs, third-party task briefs) against live/actual behavior before trusting them and writing code against them — a docs page or a brief being plausible is not the same as it being correct right now
+- Use plan mode (or otherwise get explicit sign-off) before non-trivial implementation work — multiple valid approaches, multi-file changes, or unclear requirements all qualify
+- Commit only when explicitly asked; never use destructive git operations (force-push, hard reset, history rewrites) without explicit confirmation
+- Always read a file before editing it; if an exact-match replacement fails, re-read the file to find the actual current content rather than reaching for a regex fallback
+{{ADDITIONAL_RULES}}
+
+## How to run / Bash commands
+{{HOW_TO_RUN}}

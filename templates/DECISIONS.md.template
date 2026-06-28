@@ -1,0 +1,16 @@
+# Decision Log
+# Entries are ordered newest-to-oldest. Most recent decision is at the top.
+#
+# Entry shape (use this for every decision worth recording):
+#
+# ## <date> — <session/short title>
+#
+# ### <the claim, question, or choice being decided>
+# - <what was decided>
+# - **Why:** <the reasoning — often a constraint, a past incident, or a tradeoff that was weighed>
+# - **How to apply:** <when/where this decision should govern future choices; note if it's narrow to one case or a standing rule>
+#
+# Only log decisions that aren't obvious from reading the code/diff — e.g. "we
+# chose X over Y because Z" or "we verified this claim and it was wrong, here's
+# what's actually true." Don't log routine implementation choices that a diff
+# already shows.

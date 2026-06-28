@@ -1,0 +1,24 @@
+# {{PROJECT_NAME}} Session Summary
+# Entries are ordered newest-to-oldest. Most recent session is at the top.
+#
+# Entry shape (use this for every session):
+#
+# ## <date> (Session N — <short title>)
+#
+# ### What was built
+# - <concrete changes — files, functions, behavior. Note where something
+#   discovered during the session contradicted an assumption from a brief,
+#   the docs, or a prior session — and what turned out to be true instead.>
+#
+# ### What was decided
+# - <non-obvious choices and why — cross-reference DECISIONS.md for the full
+#   rationale rather than duplicating it here>
+#
+# ### Verification
+# - <what was actually run/checked to confirm this works — test suite results,
+#   live behavior checks, specific commands and their output. "Looks right"
+#   is not verification; running it and checking the actual result is.>
+#
+# ### What to do first next session
+# - <the next concrete action, in priority order — written so a fresh
+#   session (or a different person/instance) can pick this up cold>

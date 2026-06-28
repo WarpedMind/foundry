@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n --arg content \"$(for f in {{DOC_FILES}}; do [ -f \"$f\" ] && printf '\\n=== %s ===\\n' \"$f\" && cat \"$f\"; done)\" '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: $content}}'",
+            "statusMessage": "Loading {{DOC_FILES_DISPLAY}}..."
+          }
+        ]
+      }
+    ]
+  }
+}
