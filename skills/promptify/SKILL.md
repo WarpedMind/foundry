@@ -1,13 +1,33 @@
 ---
 name: promptify
-description: Rewrite a rough, informal task description into a clear, structured, effective prompt, with an explanation of what changed and why. Use when the user types /promptify followed by a rough idea, or /promptify! for the same rewrite applied immediately without a review step. Standalone skill — not specific to any one project type.
+description: Rewrite a rough, informal task description into a clear, structured, effective prompt, with an explanation of what changed and why. Use when the user types /promptify followed by a rough idea, /promptify! for the same rewrite applied immediately without a review step, or bare /promptify with no content for a guided build-from-scratch mode. Standalone skill — not specific to any one project type.
 ---
 
 # promptify
 
-Two entry points, same rewriting logic, different trust level:
-- **`/promptify <rough idea>`** — rewrite, explain, wait for approval. Default and recommended mode.
-- **`/promptify! <rough idea>`** — rewrite, then immediately proceed to execute the improved prompt in the same turn. Use only once the user has seen enough `/promptify` output from this kind of request to trust the rewrite without reviewing it first.
+Three entry points:
+- **`/promptify <rough idea>`** — rewrite an existing rough idea, explain, wait for approval. Default and recommended mode. Covered by Steps 1-5 below.
+- **`/promptify! <rough idea>`** — same rewrite, then immediately proceed to execute the improved prompt in the same turn. Use only once the user has seen enough `/promptify` output from this kind of request to trust the rewrite without reviewing it first.
+- **`/promptify` with no content** — guided build-from-scratch mode, for when the user doesn't have a rough idea typed yet and wants to construct the prompt collaboratively instead of writing one alone and rewriting it after. See "Build-from-scratch mode" below, before Step 1 — this is a different flow, not a variant of the rewrite steps.
+
+## Build-from-scratch mode (`/promptify` with no arguments)
+
+This exists specifically to reduce the number of conversational round trips needed to build a prompt collaboratively — batching the structural questions into one call instead of asking them one at a time. This is *relatively* cheaper than the fully-conversational alternative it replaces (fewer total turns), not free or context-neutral in absolute terms — every skill invocation (which loads this entire file into context), every question, and every answer is still a normal turn consuming real context, the same as any other exchange. The savings is in turn count, not in some special low-cost mechanism.
+
+**Step A — ask the genuinely open-ended question as plain text, not via `AskUserQuestion`.** `AskUserQuestion` requires 2-4 concrete options per question and cannot represent a true free-text answer — forcing "what do you want this to accomplish?" into that format would mean inventing arbitrary placeholder options for a question that has none. Ask in a normal message: "What do you want this prompt to accomplish? Describe the goal in your own words." Wait for the answer before continuing — this is the one genuinely sequential step, since everything else depends on knowing the goal first.
+
+**Step B — once the goal is known, batch the remaining structural questions into a single `AskUserQuestion` call** (up to 4 questions per call; if more than 4 are relevant, prioritize the ones that matter most for this specific goal rather than asking all of them every time). Candidate questions, chosen based on what's actually relevant to the stated goal — don't ask all of these every time, only the ones that matter for this request:
+- Should I take on a specific role/persona for this? (e.g. "skeptical senior reviewer," "explain to a beginner," or "no, not needed")
+- Is there anything else you want bundled into this same prompt, so it's one request instead of several follow-ups?
+- Does the order of what you described match what you actually want done first, or should something be reprioritized?
+- What should the output look like — prose explanation, code, a diff, a structured list/table, or something else?
+- (For implementation/debugging-shaped goals) Anything already ruled out, or specific files/areas to focus on or avoid?
+
+Always include real, meaningful options per question (not filler) — the user can also answer via `AskUserQuestion`'s built-in "Other" mechanism for anything that doesn't fit the given choices, which is preferable to them typing a full free-text tangent, since picking "Other" with a short note is cheaper than a new back-and-forth turn.
+
+**Step C — build the prompt from the goal (Step A) + answers (Step B)**, applying the same structural-elements judgment as Step 3 of the rewrite flow below (goal/success criteria, scope, context, role only if warranted, domain-risk-flagging if relevant, verification expectation, etc.) — this is the same quality bar, just assembled from direct answers instead of inferred from a rough rewrite.
+
+**Step D — present + explain, same as Step 4 below, then wait for approval like the no-bang rewrite mode** (build-from-scratch mode has no `!` variant — if the user wants instant execution, they already have enough of a prompt in mind to use `/promptify!` with content instead).
 
 ## Step 1 — classify the request shape
 
@@ -32,8 +52,12 @@ Produce a structured prompt appropriate to the classified shape. General structu
 - Relevant context the rewrite surfaces from the conversation/repo that the rough version left implicit.
 - For implementation/debugging: named files or areas if known, or an explicit instruction to locate them first if not.
 - Verification expectation — how the requester (or the assistant) will know the result is correct, not just "looks done."
+- **Role/persona framing, only when it changes the quality of the response** — e.g. "review this as a skeptical senior engineer" for an architecture decision, or "explain as if to someone who's never seen this codebase" for a writing/communication task. Skip this for shapes where it adds nothing (most debugging/implementation tasks don't benefit from a persona — the model already knows it's debugging).
+- **Domain-aware risk flagging, when the request touches a sensitive area** — if the rough input involves auth, payments, credentials/secrets, data deletion, or other code where a quick fix could introduce a security or correctness regression, add an explicit guardrail naming the specific risk (e.g. "don't modify session-secret or password-hashing logic without flagging it first" for a login bug) rather than leaving this to the assistant to notice unprompted. Infer the relevant domain from the request's content — don't ask the user to classify it themselves.
+- **Hypothesis enumeration for debugging tasks specifically** — when a bug could plausibly have multiple distinct root causes, ask for them to be enumerated and ruled out (or ruled in) before committing to a fix, rather than letting the first plausible cause become the fix path by default.
+- **Existing test/verification infrastructure** — for implementation/debugging tasks, ask whether to run the existing test suite and/or add a regression test for this specific case, rather than leaving "verification expectation" purely behavioral with no mention of what's already in place to check it.
 
-Keep the rewrite as short as it can be while still being unambiguous — a structured prompt that's 3x longer than necessary is its own failure mode.
+Keep the rewrite as short as it can be while still being unambiguous — a structured prompt that's 3x longer than necessary is its own failure mode. Not every element above applies to every request — apply judgment about which actually improve this specific prompt rather than mechanically including all of them every time, which would reintroduce the "3x longer than necessary" failure mode this rule already warns against.
 
 ## Step 4 — explain (always, even in `!` mode)
 

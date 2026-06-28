@@ -29,18 +29,24 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 - Two real overwrite-risk gaps (found by the user, not caught by prior sessions) closed: `foundry-docs`/`foundry-governance`/`foundry-stack` now all check for and protect existing file content before writing; `foundry-init` now checks whether the current directory is an actual project root before scaffolding (concrete, tested command — not just judgment).
 - All 8 skills written; the security-critical mechanisms (secrets-guard regex, `.gitignore` baseline, already-committed-secrets scan, location-safety check) are now verified against real adversarial test fixtures, not just a single happy-path case.
 - Pushed to `github.com/WarpedMind/foundry` (public) and installed at `~/.claude/skills/` — both confirmed working.
+- **First real (non-scratch) `/foundry-init` run completed (Session 5)**, on Foundry's own repo via the actual Skill tool. Confirmed the Session 4 safety fixes work on real content: Step -1's location check returned 0 correctly, `foundry-docs` Step 0 detected all three existing real docs and asked per-file rather than overwriting. Created `STACK.md` for real, populated from Foundry's own verified history rather than left empty.
+- **`/promptify` exercised for real for the first time (Session 5)**, against a deliberately rough debugging prompt. Found and fixed 4 real gaps in its Step 3 instructions (no role/persona-framing option, no domain-risk-flagging, no hypothesis enumeration for debugging, no test-infrastructure awareness) — confirmed via direct before/after comparison on the identical input, not just by re-reading the updated instructions.
+- **Added a third `promptify` entry point: bare `/promptify` (no arguments) — guided build-from-scratch mode (Session 5)**, proposed by the user. Asks the open-ended goal question as plain text (a real `AskUserQuestion` constraint — it requires 2-4 concrete options and can't represent free text), then batches the remaining structural questions into one call. Tested for real ("create a game"); produced a well-scoped output. A cost claim in the skill's own description was corrected after being questioned directly: this mode is relatively cheaper in turn count than the fully-conversational alternative, not free — every question/answer is still a normal turn with real context cost.
 
 ## KNOWN DEBT
-- Promptify's "prompt shape" classification logic has not been tested against a range of real rough inputs yet — only designed, not exercised
+- `/promptify`'s build-from-scratch mode has only been tested once (a "create a game" goal) — needs testing against a goal where more than 4 structural questions would be relevant, to confirm the "prioritize, don't ask all of them" instruction actually works under that pressure
+- `/promptify` has now been exercised on debugging (rewrite mode) and one open-ended goal (build-from-scratch mode) — still needs testing against the other 4 rewrite-mode shapes (research, implementation, architecture/design, writing/communication) to confirm the new role-framing element fires correctly when it should, since prior tests only confirmed it correctly stayed silent or correctly fired once
 - foundry-governance and foundry-security have been verified at the mechanism level (hook logic, detection patterns, now including adversarial regex/glob fixtures) but not yet exercised through a real multi-step Skill invocation the way foundry-init was
-- foundry-stack has not yet been exercised through a real Skill invocation either — verified by hand-rendering against real project history, not by running the skill itself end-to-end
-- Foundry has never been run on a real, non-scratch project — every test so far was a disposable scratch directory. This is the real next milestone before treating it as proven.
-- The new `foundry.scaffoldMode` field and the regulatory-staleness/outgrown-minimal-mode checks in `foundry-repo-hygiene` are designed and written but not yet exercised through a real invocation — same gap as the items above, just added this session.
+- `foundry-stack` has now been exercised through one real Skill invocation (Session 5) — still only tested on one project (Foundry itself); not yet tested on a project with a less-complete pre-existing history to confirm the "leave empty until verified" discipline holds for a true day-one case
+- Foundry has only ever been run on itself, never on a genuinely different real project (one with a different risk profile, e.g. actual secrets handling) — this is the next real-world variation still untested
+- The `foundry.scaffoldMode` field and the regulatory-staleness/outgrown-minimal-mode checks in `foundry-repo-hygiene` are still designed but not yet exercised through a real invocation — the Session 5 run didn't trigger these paths (no minimal-mode history, no regulatory section to check)
+- The status hook's dismiss path is still untested through a real invocation
 - See README.md's Roadmap section for explicitly deferred features (proactive review agents, `foundry-update`, persistent statusLine indicator, pluggable external skill packs, cross-project lessons/stack aggregation, shell-quoting hardening, STACK.md confidentiality cross-check)
 
 ## Next session priorities (in order)
-- Run `/foundry-init` on a real project (not a scratch directory) — the actual milestone that matters most right now
-- Exercise `/promptify`, `/foundry-stack`, the status hook's dismiss path, and the new `foundry-repo-hygiene` staleness checks through real Skill-tool invocations to close the remaining verification gaps above
+- Run `/foundry-init` on a genuinely different real project (different risk profile, e.g. actual secrets/credentials) to test paths this session's run on Foundry itself didn't exercise (HANDLES_SECRETS=true path, foundry-governance, the minimal-mode/regulatory-staleness checks)
+- Test `/promptify` against the remaining 4 request shapes to confirm role-framing fires correctly when warranted, not just stays silent when it shouldn't fire
+- Exercise the status hook's dismiss path through a real invocation
 - Consider whether foundry-docs needs a literal IF-block parser/instruction refinement after more real-world use, or whether the current "follow these steps" Markdown instruction has proven sufficient
 
 ## Rules / Never do
@@ -52,6 +58,7 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 - Update SESSIONS.md and, if status changed, CLAUDE.md as part of the same work — not as a separate cleanup pass remembered later
 - If README.md describes a feature, command, or setup step that no longer matches reality, fix the README in the same change — don't leave it to drift
 - Don't add a new composable skill without updating this CLAUDE.md's Architecture section in the same change
+- Update STACK.md whenever a technology is added, replaced, retired, or reaches a milestone worth recording — and only mark something "in use" once actually verified running, not when first written
 
 ## How to run / Bash commands
 - Install: `./install.sh`

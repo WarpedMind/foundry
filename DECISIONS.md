@@ -1,6 +1,45 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — Build-from-scratch promptify mode added; cost claim corrected
+
+### Bare `/promptify` (no arguments) added as a third, distinct mode
+- The user proposed it directly: when there's no rough idea typed yet, ask a structured series of questions (goal, role, scope, output format) to build the prompt collaboratively, rather than typing something rough first and rewriting it after.
+- **Why:** this is a genuinely different use case from the existing two modes — both of those assume the user has already typed *something*, even if rough. A bare invocation has nothing to rewrite, so it needs its own flow, not a variant of the rewrite steps.
+- **How to apply:** split the question-gathering into two parts based on a real technical constraint: the open-ended goal question must be plain conversational text, because `AskUserQuestion` requires 2-4 concrete options per question and structurally cannot represent free text (confirmed directly — this exact limitation was hit earlier in this session trying to ask "which project is this in?" as a question). Everything after the goal is known gets batched into one `AskUserQuestion` call to minimize round trips. Verified with a real test ("I guess I want to create a game") — the flow worked, including a free-text detail supplied via "Other" correctly carrying through to the final prompt.
+
+### Don't let a "this saves context" framing overstate what's actually true
+- After the build-from-scratch mode test, the user asked directly: was that back-and-forth free, or "just substeps"?
+- **Why:** the honest answer is no — every skill invocation, question, and answer in that exchange was a normal conversational turn with real context cost (the skill's full SKILL.md text gets loaded into context on each invocation, same as any other skill call). The mode is *relatively* cheaper than the alternative it replaces (fewer total turns than asking the same 4 questions one at a time conversationally), which is a real and worth-stating benefit — but the skill's own original wording ("avoid the context cost," "as few round trips as possible") could be read as implying something closer to free, which isn't accurate.
+- **How to apply:** rewrote the build-from-scratch mode's framing to state the comparison precisely (fewer turns than the conversational alternative; not free or context-neutral in absolute terms) rather than leaving an overstated claim in place just because it sounded good. Same standing discipline as the rest of this project: a confident-sounding claim needs to be checked against what's actually true, not left alone because correcting it feels like a downgrade.
+
+---
+
+## 2026-06-28 — "Promptify auto mode" idea recorded as deferred (was at risk of being lost)
+
+### A real, previously-discussed feature wasn't written down anywhere in the repo
+
+### A real, previously-discussed feature wasn't written down anywhere in the repo
+- Earlier in this same overall work, the user proposed a "Promptify auto mode" — automatically running any sufficiently complex/heavy prompt through promptify's rewrite step, without explicitly typing `/promptify` each time. This was discussed and deliberately deferred (correctly — it needs real design work on the hard part, reliably classifying "heavy" vs. "simple" prompts). But the decision to defer it was never actually committed to README.md's Roadmap or DECISIONS.md — it only existed in conversation history.
+- **Why this matters:** a deferred idea that's only in conversation history is functionally the same as a dropped idea once that conversation ends or gets compacted — the entire point of this repo's "every finding gets fixed or explicitly, visibly deferred, never silently dropped" rule (see the Session 4 entry below) applies just as much to feature ideas as it does to safety findings. This one nearly fell through that exact gap.
+- **How to apply:** added to README.md's Roadmap with enough detail to pick up later (the likely mechanism — a `UserPromptSubmit` hook with a lightweight classifier — and the specific hard part still undesigned, complexity classification with acceptable false-positive/negative rates). Confirmed directly to the user: this capability does not exist today; `/promptify`/`/promptify!` are always explicit, opt-in invocations.
+
+---
+
+## 2026-06-28 — First real exercise of /foundry-init and /promptify
+
+### "Tested by design review" is not the same as "tested" — applies past the security context too
+- After the first real `/foundry-init` run succeeded, ran `/promptify` for the first time against a real rough prompt rather than treating its KNOWN DEBT status as acceptable to leave open indefinitely.
+- **Why:** the same lesson from the Session 4 security review (a "tested" claim needs actual evidence, not just confident-sounding design) turned out to apply here too, just for a different kind of correctness: promptify's Step 3 instructions *looked* complete on paper (5 structural elements, all individually reasonable), but running it against one real input surfaced 4 concrete gaps a careful reader of the instructions alone would not have predicted — no role-framing element at all, no domain-risk-flagging mechanism, no hypothesis enumeration for debugging, no test-infrastructure awareness. None of these were "bugs" in the sense of broken logic; the instructions just hadn't been pointed at a real case yet.
+- **How to apply:** for any skill whose quality depends on judgment applied per-invocation (not a literal template with fixed output), "designed but not exercised" should be treated as "unverified," not "probably fine" — the design quality of the instructions is not a substitute for seeing real output. Re-run the same test after a fix to confirm the change actually worked, not just that the new instruction text reads well.
+
+### Promptify's structural-elements list expanded: role-framing, domain-risk-flagging, hypothesis enumeration, test-awareness
+- The user's own mental checklist for a good prompt (order, structure, no contradictions, specificity, "using roles," explicit desired action) included role/persona framing — which promptify's Step 3 didn't have as an option at all before this fix.
+- **Why:** role-framing genuinely changes output quality for some shapes (architecture review, writing/communication) and does nothing for others (most debugging/implementation tasks) — the fix had to add it as a conditional element ("only when it changes response quality"), not a mandatory one, to avoid the "3x longer than necessary" failure mode the skill already warns against. Domain-risk-flagging (auth/payments/secrets/deletion) was added because a generic structural checklist has no way to know a specific request touches security-sensitive code unless something explicitly prompts for that inference. Hypothesis enumeration and test-awareness were added because the first test output, while structurally fine, defaulted to one fix path and had no connection to existing verification infrastructure — both are real-world necessities for debugging specifically, not generic prompt hygiene.
+- **How to apply:** verified directly via before/after comparison on the identical test input — confirmed the second pass added hypothesis enumeration, a concrete named security guardrail, and test guidance, while correctly NOT adding role-framing (since it wouldn't have helped this debugging-shaped request), proving the "apply judgment, don't apply everything mechanically" instruction is actually followed.
+
+---
+
 ## 2026-06-28 — Independent safety review before public release
 
 ### A future QC/adversarial-review skill should be referenced by Foundry, not owned by it

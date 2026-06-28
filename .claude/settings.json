@@ -1,7 +1,8 @@
 {
   "foundry": {
     "scaffolded": true,
-    "scaffoldedDate": "2026-06-28"
+    "scaffoldedDate": "2026-06-28",
+    "scaffoldMode": "full"
   },
   "hooks": {
     "SessionStart": [
