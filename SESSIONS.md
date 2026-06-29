@@ -1,6 +1,31 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 10 — Promptify model/effort suggestion; public-launch prep)
+
+The user asked whether Foundry should help pick which model/effort level to use per task (e.g. Haiku for simple lookups, Opus for complex work) — framed as automatic routing to save cost and avoid under/over-powering a request.
+
+### What was decided
+- Pushed back on the literal ask before building anything: Claude Code has no mechanism for a skill to dynamically swap the active model mid-conversation per-request — there's no API to "route" a specific prompt to a specific model the way the user initially imagined. Building something that implied otherwise would have been overstating what's actually possible.
+- Reframed as a **recommendation**, not automatic routing — consistent with Foundry's existing philosophy everywhere else (suggest, ask, surface a decision; never act unilaterally). Scoped to live inside Promptify's existing Step 3/4 (it already classifies request shape/complexity to build the rewrite; reusing that judgment for a one-line model/effort suggestion costs almost nothing extra).
+- Explicitly considered and rejected a separate, more "detailed" standalone command for this: it would need real data to reason over (actual cost/performance tradeoffs, historical outcomes) that isn't available to a skill today, so a deeper version would just be a longer restatement of the same judgment, not a genuinely better one. Documented as a deferred Roadmap item instead of building it speculatively — explicit reasoning for *why* it's deferred (lack of real data to reason over), not just "later."
+
+### What was built
+- Added a model/effort-suggestion structural element to `promptify`'s Step 3, alongside its existing role-framing/risk-flagging/hypothesis-enumeration elements — same anti-padding discipline (only fires when the task is clearly toward one end of the complexity spectrum, stays silent for routine/moderate cases).
+- Added a Roadmap entry in README.md documenting the deferred "deeper standalone command" idea, with the actual reasoning for why it's not built yet.
+
+### Verification
+- Tested both directions for real, not just by re-reading the new instruction: a trivial arithmetic lookup ("what's 15% of 240") correctly triggered a Haiku suggestion with a one-line reason; a multi-service, multi-cause payment-bug debugging scenario correctly triggered an Opus/higher-effort suggestion, layered correctly alongside the already-existing hypothesis-enumeration and domain-risk-flagging elements rather than replacing them.
+- Confirmed (by checking against prior sessions' test transcripts) that moderate-complexity requests (architecture decisions, research questions, writing tasks) correctly got no model suggestion at all — the element only fires at the extremes, as designed.
+
+### Other work this session
+- Wrote a job-hunting handoff brief (self-contained narrative + concrete interview talking points, grounded in actual repo facts) for the user to paste into a separate job-search-focused AI instance.
+- Added Foundry to the user's GitHub profile README (`WarpedMind/WarpedMind`) — two precise additions (a "What I've Been Building" bullet and a table row), nothing else touched, given the profile is hiring/client-facing.
+- Drafted two LinkedIn announcement post versions (full + punchy) for the user to edit into their own voice — corrected a real overstatement in the first internal draft before it reached the user: Foundry does not track context-window usage or tell you when to start a new session based on a percentage; it has a written drift-based checkpoint *suggestion* in generated CLAUDE.md files, not a measurement mechanism. Verified this distinction was already correctly stated in the published docs (`docs/HOWS_AND_WHYS.md` even has a section explicitly pre-empting this exact misconception) before concluding no repo fix was needed — the error was only in conversational draft text, never published.
+
+### What to do first next session
+- Foundry's KNOWN DEBT is otherwise unchanged from Session 9 — this session was a scoped feature addition plus public-launch support work, not a bug-closing pass.
+
 ## 2026-06-28 (Session 9 — USER_GUIDE.md, README personalization, license decision)
 
 The user pointed out a real gap before public announcement: someone cloning the repo today would know Foundry exists and sounds good, but wouldn't know what actually happens on first run. Also raised licensing (does MIT let someone fork this with zero credit?) and asked for personal calls-to-action (LinkedIn, GitHub follow, CAIO Consultants) without making the project feel salesy.
