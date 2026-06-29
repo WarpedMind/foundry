@@ -1,6 +1,20 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — Closing remaining debt for a "bulletproof, portfolio-quality" bar
+
+### Unit-verified and integration-verified are different claims — close both, not just one
+- The user wants Foundry to be genuinely bulletproof, not just "tested" in the loose sense. Most KNOWN DEBT items going into this pass had already passed isolated mechanism tests (a hook validated alone, a regex checked alone) but had never been exercised together, in sequence, on a real project.
+- **Why:** a piece working in isolation doesn't guarantee the pieces work correctly *together*, in the real order they actually run, against a real project with real stakes (a real `.env`, a genuinely uncertain regulatory question, a true day-one stack with nothing yet verified). Several of this session's earlier bugs (the regex/glob gaps, the trailing-space parsing bug) were found specifically by testing the real, full mechanism rather than trusting a simplified version — this is the same principle, scaled up from one hook to a full end-to-end run.
+- **How to apply:** when closing out a debt list, distinguish "mechanism verified in isolation" from "exercised end-to-end on a real, different project" as two separate bars, and don't mark something fully closed until both are met. The end-to-end run in this session found zero new bugs — but that's only meaningful evidence of robustness because it happened *after* the individual pieces were already hardened, not instead of doing that work.
+
+### A genuinely uncertain test case is more valuable than a clean-cut one
+- The test project for this pass was deliberately given a genuinely ambiguous regulatory status ("possibly health-data-adjacent") rather than a clean yes/no, specifically to stress-test `foundry-governance`'s anti-fabrication rule under real uncertainty, not just its documented intent.
+- **Why:** a skill that handles "obviously regulated" and "obviously not regulated" correctly hasn't actually proven it resists the temptation to fabricate confidence in the harder, more realistic case — most real projects' regulatory status isn't a clean binary.
+- **How to apply:** the correct output was an honest "not yet researched, get this reviewed" placeholder, not a guessed framework — confirmed that's what was actually produced. When designing a test case for an anti-fabrication or honesty-preserving rule, prefer genuinely ambiguous inputs over clean-cut ones; they're the actual stress test.
+
+---
+
 ## 2026-06-28 — CwdChanged superseded: detect command-level drift, not cwd-change events
 
 ### A deferred item should be re-attempted with real triggers before being accepted as permanently blocked
