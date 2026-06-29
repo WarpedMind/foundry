@@ -45,11 +45,17 @@ Here's exactly what happens, in order:
 
 Before asking you anything, Foundry checks whether you're actually standing in one project's root, not a folder full of unrelated projects (like `~` or `~/Projects`). If it looks wrong, it stops and asks you to `cd` into the right place first. You won't usually see this — it only speaks up if something looks off.
 
-### 2. "Is this throwaway, or a real project?"
+### 2. "Is this throwaway, a new real project, or an existing project?"
 
-If you say **throwaway**: Foundry writes a 3-line CLAUDE.md (what this is, stack, how to run) and stops. No hooks, no security setup, no questionnaire. This is the "I don't want to think about this" path for a 10-line script.
+Three options:
 
-If you say **real project**: continue below.
+- **Throwaway / script**: Foundry writes a 3-line CLAUDE.md (what this is, stack, how to run) and stops. No hooks, no security setup, no questionnaire. The "I don't want to think about this" path for a 10-line script.
+
+- **New real project**: the full sequence below runs. Foundry asks you the questionnaire, then scaffolds everything relevant.
+
+- **Existing project / already has docs**: Foundry skips the full questionnaire and asks you which specific pieces you want — just the hooks? just STACK.md? just the secrets guard? You pick, it runs only those, and it protects any docs you've already written. This is the right choice if you're coming back to a project that's already running and just want to add one piece of Foundry's structure.
+
+If you say **new real project**: continue below.
 
 ### 3. "Brief or detailed explanations?"
 
@@ -151,6 +157,7 @@ This is **not** the same thing as a general `/code-review`, if your project has 
 ## Decision guide — quick answers to "should I say yes or no here"
 
 - **Brief vs. detailed explain mode?** Detailed if you're newer to this kind of setup or want to understand the why, not just the what. Otherwise brief — you can switch mid-run.
+- **New project vs. existing project at the first question?** If your project already has a CLAUDE.md, DECISIONS.md, SESSIONS.md, or anything else hand-written, pick **existing project** — it skips the full questionnaire and lets you add just the piece you want without risking your existing docs. "New project" is for a blank slate only. When in doubt, pick existing — Foundry will protect any files it finds either way, but "existing" mode is the path that explicitly asks you what you want rather than assuming you want everything.
 - **Dismiss the status hook's offer, or run `/foundry-init`?** If the project will stay a one-off script forever, dismiss it. If there's any real chance it grows (most things do), run init — the minimal/throwaway path is also a few seconds, and it's much cheaper to do this on day one than to retrofit months of work later.
 - **`/promptify` or `/promptify!`?** See above — plain mode until you trust the pattern, `!` once you do.
 - **Opt into qc-review's mechanical auto-run hook, or just use it on demand?** Stick with on-demand and the proactive offer (the default) unless you have one specific, unusually high-risk file or directory where you genuinely want a nag after every single edit. The mechanical hook fires after every edit, not at a real "I'm done" checkpoint — for most people, most files, this is more noise than signal.

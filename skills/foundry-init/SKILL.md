@@ -1,6 +1,6 @@
 ---
 name: foundry-init
-description: Initialize a new (or retrofit an existing) project with Foundry's full scaffolding — docs, hooks, security baseline, repo hygiene, governance, and optional career/stack tracking, derived from a short questionnaire rather than a fixed preset. This is the orchestrator; it calls foundry-docs, foundry-hooks, foundry-security, foundry-repo-hygiene, foundry-governance, and foundry-stack in sequence. Use at the start of a new project, or on an existing project that wants Foundry's structure retrofitted.
+description: Initialize a project with Foundry's scaffolding — docs, hooks, security baseline, repo hygiene, governance, and optional career/stack tracking. Three paths at Step 0: throwaway/script (minimal CLAUDE.md only), new real project (full questionnaire + full sequence), or existing project (pick specific pieces to add without redoing the whole sequence). This is the orchestrator; it calls foundry-docs, foundry-hooks, foundry-security, foundry-repo-hygiene, foundry-governance, and foundry-stack.
 ---
 
 # foundry-init
@@ -28,11 +28,32 @@ This check is a strong heuristic, not an absolute technical guarantee — Claude
 
 ## Step 0 — fast path check
 
-Ask first, before anything else: **"Is this a throwaway/personal script, or a real project you intend to maintain?"**
+Ask first, before anything else — three options, not two:
 
-If throwaway: skip the full questionnaire. Just write a minimal CLAUDE.md with `What this is`, `Stack`, `How to run` — nothing else — via `foundry-docs` in its simplest mode (no DECISIONS.md/SESSIONS.md, no hooks, no security/governance sections). Before stopping, write `foundry.scaffoldMode: "minimal"` into `.claude/settings.json` (create the file if it doesn't exist yet, even without the full hooks setup) — this is what lets a later freshness check (`foundry-repo-hygiene`) notice if a "throwaway" project has quietly grown into something that now warrants the full questionnaire, since nothing else in Foundry would otherwise ever revisit that original choice. Stop here. Don't make a 10-line script justify a compliance section.
+1. **Throwaway/personal script** — skip the full questionnaire. Write a minimal CLAUDE.md with `What this is`, `Stack`, `How to run` — nothing else — via `foundry-docs` in its simplest mode (no DECISIONS.md/SESSIONS.md, no hooks, no security/governance sections). Before stopping, write `foundry.scaffoldMode: "minimal"` into `.claude/settings.json` (create the file if it doesn't exist yet) — this lets a later freshness check (`foundry-repo-hygiene`) notice if a "throwaway" project has quietly grown into something that now warrants the full questionnaire. Stop here. Don't make a 10-line script justify a compliance section.
 
-If real project: continue to Step 0.5, then the full questionnaire below.
+2. **New real project** — continue to Step 0.5, then the full questionnaire below.
+
+3. **Existing project / already has docs** — this project already has some or all of CLAUDE.md, DECISIONS.md, SESSIONS.md, hooks, or other structure in place, and the user wants to add or update one or more specific pieces without redoing the whole sequence. Go to **Step 0-E** below instead of the full questionnaire.
+
+---
+
+## Step 0-E — existing project retrofit (only reached from Step 0 option 3)
+
+Ask what they actually want — don't run anything they haven't asked for:
+
+> "Which pieces do you want to add or update? (Pick one or more — I'll run just those, not the full sequence.)"
+> - **SessionStart hook + status hook** (`/foundry-hooks`) — loads your docs automatically at every session start, shows Foundry status; the most useful single piece to add to an existing project
+> - **Secrets guard** (`/foundry-security`) — `.gitignore` baseline, `.env.example`, and a commit-time hook that blocks accidental credential commits
+> - **CLAUDE.md / DECISIONS.md / SESSIONS.md** (`/foundry-docs`) — create or update the core docs; Foundry will read existing files and ask per-file before changing anything
+> - **Governance / compliance sections** (`/foundry-governance`) — regulatory context and compliance notes
+> - **STACK.md career tracking** (`/foundry-stack`) — resume/portfolio tech-stack doc
+> - **Repo hygiene rules** (`/foundry-repo-hygiene`) — "keep docs current" discipline added to CLAUDE.md
+> - **All of the above** — run the full sequence (same as option 2 above, but Foundry will detect and protect existing files rather than treating this as a blank slate)
+
+Run only the selected sub-skills, in the dependency order defined in Step 2. Skip Step 0.5 (explain mode) and Step 1 (the full questionnaire) unless the user picks "All of the above" or is creating CLAUDE.md for the first time — in which case you need the questionnaire answers to derive the flags correctly.
+
+**Important:** every selected sub-skill still applies the same overwrite protection — it reads existing files and asks per-file before changing anything. Running `/foundry-hooks` on a project that already has a `settings.json` merges cleanly rather than replacing it. This path is safe to run on a project that already has hand-written docs.
 
 ## Step 0.5 — explain mode
 
@@ -80,12 +101,6 @@ Once scaffolding is done, tell the user both are available (from this Foundry in
 ## Step 4 — final review, no auto-commit
 
 Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md.
-
-## Notes on retrofitting an existing project
-
-Everything above applies the same way, except:
-- Step 0's fast-path question becomes "do you want full scaffolding, or just specific pieces (e.g. just the SessionStart hook)?" — an existing project may only want one piece, not the whole set. Offer to run just one sub-skill if that's all they want; don't force the full sequence.
-- `foundry-docs` should check for and offer to migrate existing informal notes (per its own SKILL.md) rather than overwriting blindly.
 
 ## Dismissing the status hook's offer (not part of foundry-init's own flow, but related)
 
