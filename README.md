@@ -4,6 +4,12 @@ Foundry scaffolds software projects with the documentation structure, hooks, and
 
 Part of **Preamble** — where you forge the foundation of how you work with AI.
 
+**New here?** Read the [User Guide](USER_GUIDE.md) for a full walkthrough of what actually happens when you run this — what you'll be asked, what gets created, and how to decide between the options. This README is the pitch; the guide is the how-to.
+
+## About
+
+I'm Tom Grow, a certified CAIO and founding partner of [CAIO Consultants](https://caioconsultants.com). I built Foundry for my own projects and client work — open-sourcing it felt like the right move.
+
 ## What it does
 
 `/foundry-init` asks a handful of questions about your project — does it handle secrets? other people's data or money? is it regulated? solo or team? — and scaffolds exactly what's relevant, nothing more:
@@ -22,16 +28,16 @@ Each piece above is also an independently invocable skill (`/foundry-docs`, `/fo
 
 ## Promptify
 
-`/promptify <rough idea>` rewrites a rough task description into a clearer, more effective prompt and explains what changed and why — meant to be educational, not a black box. `/promptify! <rough idea>` does the same rewrite and immediately proceeds to execute it, for routine patterns you've already learned to trust. Bare `/promptify` with no content switches to a guided build-from-scratch mode — useful when you don't have a rough idea typed yet: it asks what you want to accomplish, then batches the remaining structural questions (role, scope, output format, etc.) into one round of questions before producing the prompt, rather than going back and forth one question at a time. (This batching is genuinely fewer turns than the conversational alternative, but it's not free — every question and answer is still a normal turn with real context cost, same as any other exchange.) Promptify is a fully standalone skill; Foundry just makes sure new projects know it exists.
+`/promptify <rough idea>` rewrites a rough task description into a clearer, more effective prompt and explains what changed and why — meant to be educational, not a black box. `/promptify! <rough idea>` does the same rewrite and immediately proceeds to execute it, for routine patterns you've already learned to trust. Bare `/promptify` with no content switches to a guided build-from-scratch mode — useful when you don't have a rough idea typed yet: it asks what you want to accomplish, then batches the remaining structural questions (role, scope, output format, etc.) into one round of questions before producing the prompt, rather than going back and forth one question at a time. (This batching is genuinely fewer turns than the conversational alternative, but it's not free — every question and answer is still a normal turn with real context cost, same as any other exchange.) Promptify is a fully standalone skill; Foundry just makes sure new projects know it exists. See the [User Guide](USER_GUIDE.md#promptify-turning-a-rough-idea-into-a-good-prompt) for when to use plain `/promptify` vs. `/promptify!`.
 
 ## qc-review
 
-`/qc-review` runs an adversarial, fresh-context review against whatever changed in the current session (or a scope you name explicitly), hunting specifically for destructive actions, security gaps, and silent overwrites — not a general code review. It formalizes the exact pattern that found this repo's own pre-launch safety issues: spawn a subagent with zero prior context, tell it to be skeptical, have it hunt for one specific failure class and report only gaps, not a clean-bill-of-health narrative. Verified findings get appended to the project's CLAUDE.md `KNOWN DEBT` section, labeled with their source (`[QC review, <date>]`) so a later reader can tell this came from an adversarial pass rather than ordinary work. Like Promptify, this is a fully standalone skill — Foundry surfaces that it exists and suggests running it at natural checkpoints (before treating security-sensitive or destructive-capable work as finished), but never runs it automatically.
+`/qc-review` runs an adversarial, fresh-context review against whatever changed in the current session (or a scope you name explicitly), hunting specifically for destructive actions, security gaps, and silent overwrites — not a general code review. It formalizes the exact pattern that found this repo's own pre-launch safety issues: spawn a subagent with zero prior context, tell it to be skeptical, have it hunt for one specific failure class and report only gaps, not a clean-bill-of-health narrative. Verified findings get appended to the project's CLAUDE.md `KNOWN DEBT` section, labeled with their source (`[QC review, <date>]`) so a later reader can tell this came from an adversarial pass rather than ordinary work. Like Promptify, this is a fully standalone skill — Foundry surfaces that it exists and suggests running it at natural checkpoints (before treating security-sensitive or destructive-capable work as finished), but never runs it automatically. See the [User Guide](USER_GUIDE.md#qc-review-an-adversarial-second-opinion-not-a-general-code-review) for what it is **not** a substitute for, and when to consider the opt-in mechanical hook.
 
 ## Install
 
 ```bash
-git clone <this-repo-url> ~/Projects/foundry
+git clone https://github.com/WarpedMind/foundry ~/Projects/foundry
 ~/Projects/foundry/install.sh
 ```
 
@@ -81,6 +87,12 @@ See [`docs/HOWS_AND_WHYS.md`](docs/HOWS_AND_WHYS.md) for the reasoning behind ea
 - [ ] Cross-project aggregation tool — pulls STACK.md (career data) and DECISIONS.md (decisions/lessons) from every Foundry project into one place. Deliberately not a per-project doc: the value isn't in concatenating entries side by side, it's in *synthesis* — surfacing that the same lesson (e.g. verify-before-trust) has independently proven itself correct across multiple unrelated projects, which a per-project doc structurally can't show. Same deferred category as the STACK.md cross-project master rollup — Foundry itself stays disciplined to one project at a time; this is a separate tool's job.
 - [x] ~~`CwdChanged`-based cross-project drift detection hook~~ — **investigated and superseded.** `CwdChanged` is a real, valid Claude Code hook event, but its stdin payload could not be verified: it requires a genuine harness-level cwd change to fire, and testing revealed that this session's own extensive cross-project work (running many `cd ~/Projects/other-project && ...`-qualified commands) never actually triggered a harness-level cwd change at all — confirmed when `EnterWorktree` reported "not in a git repository" despite hours of real work inside one, revealing the session's tracked root had silently never moved. This means `CwdChanged` would not have caught the exact scenario that motivated this idea in the first place. **Built a working substitute instead**: a `PreToolUse`/`Bash` hook (Hook 4 in `foundry-hooks`, optional/offered not forced) that detects a leading `cd` to a directory outside the project and logs it to `.claude/drift.log` — verified against 6 real test cases. Two known, stated limitations: only catches `cd` as the first token in a command (a later `cd` in a chain is missed, confirmed by test), and a relative `cd ..` resolves against actual shell state the hook can't independently verify. The written-rule version (proactively suggesting a checkpoint on directory change, in the CLAUDE.md template's standing Rules) remains in place as a complementary, judgment-based layer alongside this mechanical log.
 
+## Get in touch
+
+If Foundry was useful, a star or a follow on [GitHub](https://github.com/WarpedMind) is always appreciated — no pressure, just genuinely nice to know it landed somewhere.
+
+I'm also open to dev work and consulting — feel free to connect on [LinkedIn](https://www.linkedin.com/in/tomgrow/) or reach me at [tom@caioconsultants.com](mailto:tom@caioconsultants.com). CAIO Consultants provides fractional and full-time Chief AI Officer services for companies serious about AI — strategy, governance, and implementation oversight without the full-time executive overhead. More at [caioconsultants.com](https://caioconsultants.com).
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). If you use or fork this, a credit/link back is appreciated (not required).

@@ -1,6 +1,26 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 9 — USER_GUIDE.md, README personalization, license decision)
+
+The user pointed out a real gap before public announcement: someone cloning the repo today would know Foundry exists and sounds good, but wouldn't know what actually happens on first run. Also raised licensing (does MIT let someone fork this with zero credit?) and asked for personal calls-to-action (LinkedIn, GitHub follow, CAIO Consultants) without making the project feel salesy.
+
+### What was decided
+- **License stays MIT, with one addition.** Direct answer given rather than hedged: MIT genuinely does not legally require attribution beyond keeping the license file in copies of the source — someone can rebrand/fork with no public credit and that's permitted. A more restrictive attribution-clause license was considered and explicitly rejected: it would trade away exactly the adoption-friendliness that makes a portfolio piece visible in the first place, for legal teeth that are rarely enforced in practice anyway. Added one non-binding line to the README ("if you use or fork this, a credit/link back is appreciated, not required") — the only part of the more-restrictive option that actually does anything, with none of the friction cost.
+- **CTAs split by document, not sprinkled everywhere.** README gets a short personal "About" section near the top (humanizes the project immediately) and a casual "Get in touch" block at the bottom (GitHub follow/star, LinkedIn, CAIO Consultants contact + a plain non-markety blurb fetched/confirmed directly from the user, not invented). USER_GUIDE.md stays entirely CTA-free except one quiet closing line pointing back to the README — nobody wants sales framing while trying to learn what a command does.
+- Real personal links/contact (LinkedIn, GitHub handle, CAIO Consultants email and a one-line description in the user's own words) were used directly rather than guessed — a WebFetch attempt against caioconsultants.com returned 403 (bot-blocked), so the actual blurb came from asking the user directly rather than fabricating positioning from the domain name alone.
+
+### What was built
+- **`USER_GUIDE.md`** (new) — the actual how-to doc, distinct from the README (pitch) and `docs/HOWS_AND_WHYS.md` (design reasoning). Walks through the literal first-run experience step by step (location check → throwaway/real fast-path → explain-mode choice → questionnaire → build sequence → final review → Promptify/qc-review mention), explains every standalone skill and when to invoke it alone, gives concrete decision guidance for every either/or choice in the system (brief vs. detailed, dismiss vs. init, `/promptify` vs. `/promptify!`, opt into qc-review's mechanical hook or not, STACK.md or not), and — explicitly requested — a "what Foundry does NOT do" section stating real limitations plainly (not a security audit, qc-review isn't a substitute for real review, governance placeholders aren't legal advice, the doc-loader hook doesn't enforce anyone reading the docs, nothing commits automatically).
+- README updated: new About section near the top, Get in touch section at the bottom, install command's placeholder URL replaced with the real repo URL (was never fixed after going public), and pointers from the Promptify/qc-review sections to the relevant User Guide anchors for deeper decision-level detail.
+
+### Verification
+- Anchor links from README to USER_GUIDE.md sections were not just assumed correct — simulated GitHub's actual anchor-generation algorithm (lowercase, strip non-word chars, collapse whitespace to hyphens) against the real header text and caught a real bug: the em-dash in two headers collapses to a single hyphen, not a double hyphen, so the first draft of both links would have 404'd. Fixed before commit, not left as a "should work" guess.
+
+### What to do first next session
+- Consider whether USER_GUIDE.md needs a "table of contents" at the top now that it's grown to 9 sections — not done yet, worth revisiting once it's been read by a real first-time user and any navigation friction becomes concrete rather than speculative.
+- The repo is otherwise in the same solid state as the end of Session 8 — this session was purely documentation/public-readiness, no skill behavior changed.
+
 ## 2026-06-28 (Session 8 — closing qc-review's two remaining test gaps)
 
 Continuation of Session 7's momentum: KNOWN DEBT listed two untested qc-review paths — a true-negative case (confirming it reports "found nothing" plainly rather than padding) and the general/unclear fallback focus category. Closed both.

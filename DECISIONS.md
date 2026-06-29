@@ -1,6 +1,13 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — USER_GUIDE.md needed a why/benefits layer, not just steps
+
+### A pure step-by-step walkthrough assumes too much prior knowledge for a public launch
+- The first draft of `USER_GUIDE.md` explained exactly what happens during `/foundry-init` but never explained *why* any of it matters — what a hook is, why session-to-session memory loss is a real problem, why a leaked secret is costly, why "regulated" gets special handling. The user caught this directly: "do we explain WHY this was created, how it works... any educational things as well for those who don't know this stuff (even non-devs)?"
+- **Why:** a user guide for something about to be publicly announced needs to work for readers who don't already believe the premise or know the jargon, not just readers who already get it and need the exact command syntax. "What you'll be asked" and "why any of this matters" are different needs, and the first draft only served the first one.
+- **How to apply:** added a "Why this exists" section at the very top of the guide, written in plain language, with an explicit skip-link for readers who already know this stuff — so the doc serves both audiences without forcing either to wade through content meant for the other.
+
 ## 2026-06-28 — "Looks clean" and "is clean" are different claims, even for test fixtures
 
 ### A hand-written "clean" test file is itself a claim that needs verification, not an assumption
