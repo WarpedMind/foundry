@@ -1,6 +1,28 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 8 — closing qc-review's two remaining test gaps)
+
+Continuation of Session 7's momentum: KNOWN DEBT listed two untested qc-review paths — a true-negative case (confirming it reports "found nothing" plainly rather than padding) and the general/unclear fallback focus category. Closed both.
+
+### What was found (unplanned, more valuable than the planned test)
+- The first attempt at a "clean" auth.py for the true-negative test was hand-written to look correct but turned out to have a real bug: it declared `_failed_attempts = {}` (clearly intended as rate-limiting state) but never actually read or wrote it anywhere — decorative, non-functional lockout protection. `qc-review`'s fresh-context subagent caught this immediately (HIGH severity), independently verified by grepping the file and confirming the variable appears exactly once, on its own declaration line.
+- This is a stronger result than a clean pass would have been: it demonstrates the skill isn't fooled by code that merely *looks* like it has a safety mechanism — it checks whether the mechanism is actually wired up, not just present.
+- Fixed the file properly (real lockout with threshold/window logic, length bounds, malformed-input handling) and re-ran. Still not clean — found a real, independently-reproduced CRITICAL: the per-username lockout has no IP binding, so an attacker who knows a valid username can lock that legitimate user out of their own account with 5 wrong guesses (verified directly: scripted exactly this attack, confirmed the legitimate user's correct-password login then fails). Also found a real TOCTOU race condition on the unlocked read-modify-write of the lockout counter, confirmed by inspection (no lock/mutex anywhere around it).
+- Concluded that getting a genuine "no findings" result from a file that has *any* real logic in it (even hardened logic) is harder than expected — the skill keeps finding legitimate second-order issues as the obvious ones get fixed, which is exactly the adversarial behavior it's meant to have, but meant the literal true-negative test needed a different kind of file.
+
+### What was built/tested
+- True-negative case, finally confirmed: ran the review against a genuinely trivial, stateless date-formatting utility (no auth/payments/secrets/destructive-action surface at all) with a general/unclear-category focus prompt. The subagent correctly returned a single plain sentence — "No findings — this file... has no overwrite, irreversible-action, confirmation, or secrets/logging surface to assess" — no padding, no manufactured concerns, exactly the report shape Step 3 specifies.
+- This same test closed the second gap simultaneously: the general/unclear fallback focus (broad pass — overwrites, irreversible actions, secrets in output) was exercised for the first time and applied correctly to a file outside the named categories.
+
+### Verification
+- All three review rounds were real `Agent` tool invocations with zero prior context, not simulated — consistent with the skill's own Step 3 requirement.
+- Every CRITICAL/HIGH claim across all three rounds was independently checked per Step 4 before being treated as real: grep-confirmed the dead rate-limiting variable, scripted and ran the actual account-lockout-DoS attack end-to-end, and confirmed the TOCTOU gap by reading the literal absence of locking in the source.
+
+### What to do first next session
+- `qc-review`'s KNOWN DEBT items are now both closed — no other known gaps in this skill specifically.
+- Worth considering, not yet decided: should `qc-review`'s own documentation mention that "no findings" is a genuinely rare result for any file with real logic, so a user isn't surprised when it keeps finding things across iterations? Or is that already implied clearly enough by the skill's adversarial framing?
+
 ## 2026-06-28 (Session 7 — built qc-review, the previously-deferred QC/adversarial-review skill)
 
 The Roadmap had a standalone fresh-context QC/adversarial-review skill flagged as deferred, with three explicit open design questions (what triggers it, how findings persist, how it avoids duplicating `/code-review`). The user asked to revisit it, confirmed it should stay inside Foundry's repo (referenced-not-owned, same pattern as Promptify) rather than become a separate project, then asked specifically that it be documented/educated-about and possibly auto-offered when appropriate.

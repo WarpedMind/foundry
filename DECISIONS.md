@@ -1,6 +1,18 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — "Looks clean" and "is clean" are different claims, even for test fixtures
+
+### A hand-written "clean" test file is itself a claim that needs verification, not an assumption
+- Building a true-negative test fixture for `qc-review` (a deliberately well-written auth file, to confirm the skill correctly reports "no findings") produced a file that looked correct but had a real bug: a `_failed_attempts` dict that was declared with an obviously rate-limiting-shaped name but never actually read or written anywhere — purely decorative.
+- **Why:** the same verify-before-trust discipline that applies to external API claims, doc pages, and task briefs elsewhere in this repo's standing rules applies just as much to code written specifically to *be* a clean baseline. Writing code that looks like it has a safety mechanism is not the same as it having one — exactly the gap this skill exists to catch, which means a test fixture for it needed to survive the same scrutiny as production code, not be assumed correct because it was written second.
+- **How to apply:** when constructing a "this should be clean" test case for any verification tool, don't treat your own authorship as a substitute for actually checking it — run the same review/test against your fixture that you'd run against real code, and expect it to occasionally fail, the way this one did.
+
+### A genuine true-negative result requires a file with no real surface area, not just hardened code
+- After fixing the decorative rate-limiting bug, the "clean" auth file still wasn't clean on re-review — it had a real CRITICAL (unbound-by-IP lockout enabling a legitimate-user DoS, independently reproduced by scripting the actual attack) and a real TOCTOU race condition (confirmed by inspection). Only a genuinely trivial, stateless utility function (date formatting, no auth/state/secrets surface at all) produced an actual "no findings" result.
+- **Why:** `qc-review`'s adversarial framing is working as intended if it keeps finding legitimate second-order issues as the obvious ones get fixed — this isn't a bug in the skill or the test, it's evidence the skill doesn't stop digging once the first layer looks fixed. The practical implication: "no findings" is a genuinely rare result for any file with real logic, not a baseline a moderately-careful implementation should expect to hit.
+- **How to apply:** don't read a `qc-review` finding on a "this should be fine" file as a sign the test fixture was poorly chosen — read it as the skill doing its job. Reserve true-negative testing for code with no meaningful logic at all if the goal is specifically to confirm the "report nothing, plainly" behavior in isolation from "is there actually nothing to find."
+
 ## 2026-06-28 — qc-review: mechanical auto-run rejected as the default trigger
 
 ### PostToolUse-triggered review fires at the wrong granularity to be the default
