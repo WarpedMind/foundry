@@ -1,6 +1,34 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-28 (Session 7 — built qc-review, the previously-deferred QC/adversarial-review skill)
+
+The Roadmap had a standalone fresh-context QC/adversarial-review skill flagged as deferred, with three explicit open design questions (what triggers it, how findings persist, how it avoids duplicating `/code-review`). The user asked to revisit it, confirmed it should stay inside Foundry's repo (referenced-not-owned, same pattern as Promptify) rather than become a separate project, then asked specifically that it be documented/educated-about and possibly auto-offered when appropriate.
+
+### What was decided
+- Resolved all three open design questions explicitly rather than building around them implicitly:
+  - **Trigger**: on-demand (`/qc-review`) plus a proactive offer at natural checkpoints, both by default. A mechanical `PostToolUse` auto-run mode was considered and deliberately scoped as opt-in-only, not default — pushed back on the user's initial "all of the above" with a concrete reason: `PostToolUse` fires after every edit, not at a real completion checkpoint, so it would re-review the same half-finished function repeatedly during normal iteration, and can't block since the edit already happened by the time it fires.
+  - **Findings persistence**: appended to CLAUDE.md's existing `KNOWN DEBT` section (reusing what's already there and already auto-loaded, rather than a new file), with every entry labeled `[QC review, <date>]` so a future reader can tell at a glance this came from an adversarial pass rather than ordinary work — same evidentiary-source discipline as this repo's own Session 4 findings.
+  - **Avoiding `/code-review` duplication**: scoped explicitly narrower — destructive actions, security gaps, silent overwrites specifically, not general code quality — and the skill states this distinction plainly so it doesn't compete with a project's own `/code-review` if one exists.
+- Scope default: everything changed since session start, not since the last git commit (matches the user's actual mental model of "what we just did" better than a commit-boundary cutoff).
+- Review focus is inferred from what's in scope (same domain-judgment pattern as `promptify`'s risk-flagging) with an explicit, stated chance to redirect — not silently locked in, not a blocking question every time either.
+- Confirmed the fresh-context-subagent mechanism (the actual thing that found this repo's own Session 4 bugs) is preserved as the literal implementation, not just inspirational framing — Step 3 explicitly forbids running the review inline in the current conversation.
+
+### What was built
+- `skills/qc-review/SKILL.md` — entry points (`/qc-review` default-scope, `/qc-review <description>` explicit scope), Step 1 (scope), Step 2 (focus inference + redirect), Step 3 (fresh subagent spawn via the `Agent` tool, self-contained prompt requirement since the subagent has zero conversation history), Step 4 (verify findings before trusting — reproduce CRITICAL/HIGH claims directly, don't relay on faith), Step 5 (persist to KNOWN DEBT, labeled by source), the proactive-offer criteria, and the opt-in-only mechanical-hook design (documented but not built, consistent with "offered, not forced" for Hook 4's precedent).
+- Wired into `foundry-init`'s Step 3 (previously a forward-reference placeholder for this exact skill) and README's qc-review section, alongside Promptify.
+- Re-ran `install.sh` — confirmed it auto-discovers the new skill directory with no changes needed, symlinked successfully.
+
+### Verification
+- Ran a real end-to-end test, not just a design review: a scratch project with a genuinely broken `auth.py` (unsalted MD5 password hashing, `==` instead of constant-time comparison, no rate limiting, username-enumeration timing leak).
+- The fresh-context subagent (spawned via the real `Agent` tool, zero prior context, self-contained prompt naming the exact file and focus) found all 4 real issues, each with file/function, scenario, and severity — no padding, no generic summary, exactly the report shape specified.
+- Applied Step 4 for real rather than skipping it: reproduced the CRITICAL finding directly (confirmed identical passwords produce identical MD5 hashes, and confirmed `hashlib.md5("password")` matches the public rainbow-table value exactly) and the HIGH finding directly (confirmed the source genuinely uses `==` with no `hmac.compare_digest` anywhere in the file) rather than trusting the subagent's claims on faith.
+- Wrote a real KNOWN DEBT block with the `[QC review, <date>]` labeling format to confirm it reads clearly to a future session, then cleaned up the scratch project.
+
+### What to do first next session
+- This skill has now been verified on one project with one obvious, deliberately-planted bug class (weak crypto/auth). Still untested: a case where the review correctly finds *nothing* (to confirm it reports that plainly rather than padding), and a case outside the auth/payments/destructive-action focus categories (the "general/unclear" fallback focus).
+- Consider whether `qc-review`'s proactive-offer criteria should also be cross-referenced from `foundry-security`/`foundry-governance`'s own SKILL.md files (e.g. "after wiring a secrets-guard hook, consider a qc-review pass on it") rather than only living in `foundry-init`'s Step 3.
+
 ## 2026-06-28 (Session 6 — closing remaining KNOWN DEBT, "bulletproof" pass)
 
 The user wants Foundry to be a portfolio-quality, genuinely bulletproof piece (and intends to actually use it). Went through the full live KNOWN DEBT/Roadmap list from CLAUDE.md systematically, closing everything achievable rather than leaving a partial pass.

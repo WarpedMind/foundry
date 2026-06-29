@@ -1,6 +1,18 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-06-28 — qc-review: mechanical auto-run rejected as the default trigger
+
+### PostToolUse-triggered review fires at the wrong granularity to be the default
+- The user's first instinct was "all of the above" for trigger modes, including a `PostToolUse` hook that mechanically runs the review after every edit to a risky file. Pushed back on this specific piece rather than accepting it as given.
+- **Why:** `PostToolUse` fires after every single tool call, not at a real completion checkpoint — it would re-review the same half-finished function repeatedly during ordinary iterative editing (pure noise/cost, no signal). It also structurally cannot block: the edit has already happened by the time `PostToolUse` fires, so the most it could ever do is nag after the fact, unlike a `PreToolUse` hook (e.g. the secrets-guard) which can actually stop something before it happens.
+- **How to apply:** on-demand (`/qc-review`) and a proactive *offer* (a suggestion Claude makes and waits on, never auto-executed) are both the default. The mechanical hook variant is documented as a real, buildable option but explicitly opt-in only, offered if asked for — same treatment Foundry already gives Hook 4 (the directory-drift logger). When a user's first instinct for "when should this run" includes a mechanism with a structural limitation like this, it's worth surfacing the limitation and asking rather than building exactly what was first described.
+
+### Findings get verified before being written down, not just relayed
+- `qc-review`'s Step 4 requires reproducing CRITICAL/HIGH findings directly before persisting them, rather than trusting the fresh-context subagent's report as fact.
+- **Why:** a subagent's claim that something is broken is itself just a claim — the entire reason `qc-review` exists is to catch real problems, and writing unverified claims into KNOWN DEBT would undermine that doc's trustworthiness the same way an unverified "tested" claim already did earlier in this repo's own history (the Session 4 regex/glob findings, which were verified independently before being fixed, not fixed on the strength of the review alone).
+- **How to apply:** this was tested for real, not assumed — the live test run reproduced the CRITICAL finding (confirmed identical-input-identical-hash behavior and a real rainbow-table match) and the HIGH finding (confirmed the literal `==` comparison in source) directly, rather than copying the subagent's report verbatim into the findings file.
+
 ## 2026-06-28 — Closing remaining debt for a "bulletproof, portfolio-quality" bar
 
 ### Unit-verified and integration-verified are different claims — close both, not just one

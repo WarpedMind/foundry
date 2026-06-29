@@ -71,11 +71,11 @@ Run in this order (matches dependency order — later steps assume earlier ones 
 
 After Step 2 completes successfully, write `foundry.scaffolded: true`, `foundry.scaffoldedDate: "<today's date>"`, and `foundry.scaffoldMode: "full"` into `.claude/settings.json` (merge — don't clobber the hooks object `foundry-hooks` just wrote). `scaffolded`/`scaffoldedDate` are what the status hook (see `foundry-hooks` skill, Hook 3) checks on future sessions to know not to offer `/foundry-init` again. Without this step, every future session in this project would see "not set up" forever even after a successful run — so this is not optional cleanup, it's the thing that makes the status hook's positive case work at all. `scaffoldMode: "full"` (as opposed to `"minimal"`, written by Step 0's throwaway path) is what lets `foundry-repo-hygiene`'s freshness check later notice if a minimal-mode project has outgrown that original choice.
 
-## Step 3 — mention Promptify
+## Step 3 — mention Promptify and qc-review
 
-Once scaffolding is done, tell the user `/promptify` and `/promptify!` are available (from this Foundry install) for turning rough task descriptions into structured, effective prompts — and that it's worth a try the next time they're about to write a multi-step request. Don't invoke it automatically; just surface that it exists.
-
-**Future integration point (not yet active — the skill doesn't exist yet):** once the standalone fresh-context QC/adversarial-review skill described in README.md's Roadmap is built, this step should also mention it — same pattern as Promptify: Foundry surfaces that it exists and when it's worth running (e.g. "before treating any security-sensitive or destructive-capable code as done, consider running the QC review skill"), without owning or invoking it automatically. Do not reference this skill by a specific command name until it actually exists; check whether it's been built yet (e.g. `ls ~/.claude/skills/` for a plausibly-named skill) before claiming it's available — don't assume from this note alone that it's been built.
+Once scaffolding is done, tell the user both are available (from this Foundry install), without invoking either automatically — just surface that they exist:
+- `/promptify` and `/promptify!` for turning rough task descriptions into structured, effective prompts — worth a try the next time they're about to write a multi-step request.
+- `/qc-review` for an adversarial, fresh-context review hunting specifically for destructive actions, security gaps, and silent overwrites — worth running before treating security-sensitive or destructive-capable work as finished. This is narrower than a general code review; mention that distinction if the project also has something like `/code-review`.
 
 ## Step 4 — final review, no auto-commit
 
