@@ -1,6 +1,27 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-29 (Session 11 continued — UX gaps from real first-use on Karbot Rage)
+
+Four gaps surfaced and closed after watching Foundry's first real use on an existing mature project (Karbot Rage).
+
+### What was built
+1. **"All of the above" warning** — added to both USER_GUIDE.md decision guide and Step 0-E in foundry-init. The option sounds like the safe/complete choice on an existing project but is actually highest-risk. Warning states this explicitly in both places.
+2. **Step 5 — mid-session catch-up offer** — new step in foundry-init, existing-project path only. After init completes mid-session, offers to backfill docs from earlier in the conversation. Leads with a mandatory warning about multi-instance conflicts (another open instance may have already updated the docs more recently). Four scope options: full session / back X prompts / most recent only / skip (recommended when in doubt). Never auto-writes — always drafts for user confirmation first.
+3. **End-of-init reminder** — added to Step 4, fires every time for every project type. Explains load-vs-write distinction plainly: hooks load docs automatically, but writing still requires the assistant. "Wrap up and update the docs" identified as the key habit phrase. USER_GUIDE.md limitations section rewritten to lead with this instead of burying it.
+4. **Status hook message rewrite** — "not set up" message changed from a flat system notice to an inviting prompt: "New project detected - Foundry is not set up here yet..." with a time estimate and clear dismiss instruction. Validated against all three states (scaffolded / dismissed / neither) before committing.
+
+### What was decided
+- Periodic "should I update docs?" prompts every 2-3 exchanges were considered and rejected — event-based is better than time-based; fixed-interval prompts become noise that trains users to ignore them.
+- The load-vs-write distinction is the most practically important limitation to communicate — it's what causes the most confusion after setup. Now leads the USER_GUIDE.md limitations section and gets an in-the-moment reminder at end of every init.
+
+### Verification
+- Status hook validated against all three states after message rewrite — all correct.
+- Foundry was actually used on Karbot Rage (a real mature project) this session — exercised the existing-project path end-to-end for the first time with a real user in real time, which is how all four gaps were found.
+
+### What to do first next session
+- Use Foundry on more real projects — that's the remaining test.
+
 ## 2026-06-29 (Session 11 — existing-project path; gap audit)
 
 Real user scenario surfaced a gap: running `/foundry-init` on Karbot Rage (a mature project with hand-written docs) showed a two-option prompt ("throwaway or real project?") with no path for "this already has docs."
