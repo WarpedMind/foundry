@@ -102,6 +102,12 @@ Once scaffolding is done, tell the user both are available (from this Foundry in
 
 Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md.
 
+After the commit question, always show this reminder — word for word, every time, for both new and existing projects:
+
+> **One thing to know about your docs going forward:** The hooks Foundry just wired will automatically load CLAUDE.md, DECISIONS.md, and SESSIONS.md into context at the start of every future session — so the assistant always starts with your project's full context without you having to ask. But the hooks don't *write* to those docs automatically. Keeping them current is still on you and the assistant.
+>
+> The good news: the rule "update SESSIONS.md and CLAUDE.md before ending a session" is now written into your CLAUDE.md, which loads automatically — so the assistant will see it every session. But to make sure it actually happens, get in the habit of saying **"wrap up and update the docs"** before you close a session. That one phrase is all it takes.
+
 ## Step 5 — mid-session catch-up offer (existing-project path only)
 
 **Only run this step if `/foundry-init` was invoked via the existing-project path (Step 0-E).** Skip entirely for new projects and throwaway scripts — their docs were just created fresh and are already current.
