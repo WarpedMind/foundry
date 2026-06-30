@@ -102,6 +102,43 @@ Once scaffolding is done, tell the user both are available (from this Foundry in
 
 Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md.
 
+## Step 5 — mid-session catch-up offer (existing-project path only)
+
+**Only run this step if `/foundry-init` was invoked via the existing-project path (Step 0-E).** Skip entirely for new projects and throwaway scripts — their docs were just created fresh and are already current.
+
+The scenario this addresses: the user ran `/foundry-init` mid-session, not at the very start. Work may have happened earlier in this conversation that isn't captured in SESSIONS.md/CLAUDE.md yet. But there's a second, more serious risk: **this session may have been open for a long time, and other sessions (in other Claude Code instances) may have already updated the docs after this instance was opened** — meaning earlier parts of this session's history could predate changes already committed by other instances, and blindly backfilling would add conflicting or stale information.
+
+### The warning — always show this first, before asking anything
+
+State this plainly, every time, before offering the catch-up:
+
+> **Heads up before we update anything:** If this session has been open for a while, or if other Claude Code instances have been working on this project at the same time, the docs may already reflect newer work than what happened earlier in this conversation. Backfilling from earlier in this session could add outdated or conflicting information — especially if another instance already captured that work more recently.
+>
+> The safest approach is to go back only as far as you're confident is still current. Or if you're not sure, start fresh from here and let future sessions capture forward from this point.
+
+### The catch-up options — offer these after the warning
+
+Ask the user which scope they want:
+
+- **From the beginning of this session** — review everything that happened before this `/foundry-init` call and draft what to add. Highest risk of conflicts if other instances have been active.
+- **Back X prompts** — the user names how many prompts back to go (e.g. "last 10 exchanges") — good middle ground when the user knows roughly when the relevant work happened.
+- **Just the most recent work** — only the last exchange or two before this init call. Lowest conflict risk.
+- **Skip — start fresh from here** — don't backfill anything. Future sessions capture forward from this point. Recommended when in doubt.
+
+### How to execute the catch-up (for any scope other than "skip")
+
+1. **Read the current docs first** — read CLAUDE.md and SESSIONS.md in full before proposing anything. The goal is to find the *delta* between what the docs already say and what this session did — not to reconstruct the session from scratch.
+2. **Compare, don't overwrite** — identify what looks genuinely missing from the docs vs. what's already captured (possibly by another instance). If SESSIONS.md already has an entry for today, or CLAUDE.md's Current Status already reflects something from this session, don't duplicate or contradict it — note the overlap and ask.
+3. **Flag conflicts explicitly** — if anything from the session history contradicts what's already in the docs (e.g. the docs say X is done but this session was still working on X), surface that directly: "The docs say [X] but earlier in this session we were [Y] — which is current?" Do not resolve this silently.
+4. **Draft, don't write** — present the proposed additions as a draft and ask the user to confirm each piece before writing. The user is the only one who knows which instance has the authoritative current state.
+5. **Write conservatively** — append to SESSIONS.md and CLAUDE.md (read-then-append, same discipline as always); never replace existing entries, never remove content already there.
+
+### What this step explicitly does NOT do
+
+- It does not measure context usage or know how long this session has been open — it can only see what's in the conversation history and what's currently in the docs.
+- It cannot detect whether another instance updated the docs more recently than this session — it can only surface the conflict for the user to resolve.
+- It does not auto-write anything. Every proposed addition requires explicit user confirmation.
+
 ## Dismissing the status hook's offer (not part of foundry-init's own flow, but related)
 
 If the user responds to the status hook's offer (see `foundry-hooks` Hook 3) with something like "skip foundry" or "skip foundry for this project" rather than running `/foundry-init`, write `foundry.dismissed: true` into `.claude/settings.json` (merge, same as Step 2.5) so future sessions in this project stay silent rather than re-offering every time. This is a real, explicit user choice being recorded — don't write it speculatively or infer it from an unrelated "no" to some other question.

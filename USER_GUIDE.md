@@ -164,6 +164,27 @@ This is **not** the same thing as a general `/code-review`, if your project has 
 - **Opt into qc-review's mechanical auto-run hook, or just use it on demand?** Stick with on-demand and the proactive offer (the default) unless you have one specific, unusually high-risk file or directory where you genuinely want a nag after every single edit. The mechanical hook fires after every edit, not at a real "I'm done" checkpoint — for most people, most files, this is more noise than signal.
 - **Track STACK.md or not?** Yes if this is a portfolio project or anything you might discuss in an interview later. Skip it for work-for-hire you don't own the narrative of, or anything you wouldn't want to talk about publicly.
 
+## Running `/foundry-init` mid-session on an existing project
+
+If you run `/foundry-init` partway through an active session (not at the very start), Foundry will ask whether you want to backfill the docs with work that happened earlier in the conversation.
+
+**Before you say yes, read this warning** — it applies any time you're mid-session:
+
+> If this session has been open for a while, or if you have other Claude Code instances working on this project at the same time, the docs may already reflect newer work than what happened earlier in this conversation. Backfilling from earlier in this session could add outdated or conflicting information — especially if another instance already captured that work.
+
+You'll be offered four scopes:
+
+| Choice | When to use it |
+|---|---|
+| **From the beginning of this session** | Only if this is your only active instance and the session just started |
+| **Back X prompts** | When you know roughly when the relevant work happened and you're confident it's still current |
+| **Just the most recent work** | Safest backfill option — lowest risk of conflicts |
+| **Skip — start fresh from here** | When in doubt. Future sessions capture forward from this point. |
+
+**When in doubt, skip.** A gap in SESSIONS.md is recoverable. Conflicting or stale entries written by multiple instances are harder to untangle.
+
+Foundry will always read the current docs before proposing anything, compare against the session history, flag any conflicts it finds, and show you a draft before writing a single line — it never auto-updates docs from session history.
+
 ## What Foundry does NOT do (read this before you rely on it)
 
 - **It is not a security audit.** The secrets-guard hook catches realistic filename patterns (`.env`, `*.pem`, `config.yaml`, etc.) — it does not catch a secret hardcoded inside an otherwise-ordinary source file, a secret pasted into a file with an innocuous name, or anything already committed before Foundry was set up (there's a separate check for that last one, but it's a scan, not a guarantee).
