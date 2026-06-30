@@ -1,6 +1,34 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 18 — sixth review pass: foundry-governance and foundry-stack)
+
+The coder instance's sixth fresh-eyes pass covered the two remaining prose-only skills with no rendered command — `foundry-governance` and `foundry-stack`. With no shell command to fuzz, the review technique shifted: re-reading each skill's stated safeguards against constructed scenarios, looking for a written guarantee with an edge its own trigger condition doesn't cover.
+
+### What was found
+All three findings share one underlying shape — a safeguard that treats the *absence* of its trigger condition as equivalent to "the safe case" rather than "unknown, flag it":
+
+1. **`foundry-governance`'s anti-fabrication rule has a gap between "explicit unknown" and "confident-but-unverifiable."** Step 1 sets a real specificity bar (names "the actual letter number and date," per the skill's own CFTC example). Step 2's safeguard — "if the user doesn't know the specifics yet, don't fabricate" — only triggers on something like an explicit "I don't know." A confident but vague answer ("we follow GDPR," no article, no date, no check of whether it actually applies) fails Step 1's bar without ever sounding like Step 2's trigger. This relocates exactly the failure mode the skill exists to prevent — confident-sounding filler nobody double-checks — from the assistant fabricating language to the assistant accepting unverified user language as if it met the bar.
+
+2. **`foundry-stack`'s "verified running" claim has no concrete evidentiary requirement.** Every mechanical hook reviewed in rounds 1-5 ended up with an explicit, re-runnable check (a `jq -e` command, a regex, a fixture file). `foundry-stack`'s parallel claim — "confirm it's actually running... not just that code referencing it was written" — was pure prose with nothing telling the executing instance what evidence to cite, unlike every SESSIONS.md entry in this very project, which religiously cites a test count or a live log line rather than asserting "verified" on its own.
+
+3. **`foundry-stack`'s confidentiality cross-check is conditioned on a precondition it never verifies.** The check only fires if a `REGULATORY CONTEXT`/`COMPLIANCE` section already exists. A genuinely sensitive project where `foundry-governance` was never run — a real, reachable path via `foundry-init`'s Step 0-E retrofit menu, or simply an inaccurately-answered questionnaire — produces zero sections to scan. The skill's text treated "no section found" identically to "confirmed no concern," with nothing surfacing the absence as a gap worth a one-line check.
+
+### What was verified before fixing anything
+Read both skill files in full and confirmed each claim directly against the actual text (not a paraphrase): `skills/foundry-governance/SKILL.md` step 2's trigger condition genuinely only names "doesn't know," with no language covering a vague-but-confident answer; `skills/foundry-stack/SKILL.md`'s verification-discipline section genuinely has no instruction to cite specific evidence; the confidentiality check genuinely only fires conditioned on a section already existing. Also confirmed `foundry-init`'s Step 0-E retrofit path is real (lets a user add `foundry-stack` standalone without ever invoking `foundry-governance`), making finding 3 a reachable scenario, not a hypothetical.
+
+### What was fixed
+All three were fixed directly in the skill prose (cheap — this is instruction text for an LLM executor, not a script):
+- `foundry-governance` step 2: added an explicit paragraph extending the flag-don't-fabricate rule to confident-but-vague answers — if the answer doesn't include something checkable (a specific article/section, a date, or a stated reason the framework applies), treat it as unverified and write the same honest-placeholder text the "I don't know" case already uses.
+- `foundry-stack`'s verification-discipline section: added an explicit instruction to cite the concrete evidence inline (test count, live log line, the command used to confirm) rather than asserting "verified" as a bare conclusion.
+- `foundry-stack`'s confidentiality check: added an explicit one-line check for when no governance section exists yet — ask once whether the project has any confidentiality/regulatory constraint Foundry doesn't already know about, and point to `foundry-governance` if so, rather than silently treating the absence as a cleared check.
+
+### Test harness
+None applicable, and stated explicitly rather than silently skipped: these are LLM-executed judgment instructions in prose skills, not mechanical regex/jq commands — there's no rendered output for `tests/run_fixtures.sh` to exercise. The fix is the sharper instruction text itself, verified by re-reading it for internal consistency with the surrounding steps, not by a runtime test.
+
+### What to do first next session
+Six review rounds now (Sessions 12-14, 16-18) have covered every Foundry skill and hook that has one. The only remaining unprobed surface: `foundry-init`'s own orchestration logic (the sequencing and multi-writer coordination across sub-skills, e.g. the `{{ADDITIONAL_RULES}}` read-then-append discipline spanning multiple skills). `foundry-repo-hygiene`'s staleness checks remain a separate, already-known gap (untested by real invocation, not unreviewed) — see KNOWN DEBT.
+
 ## 2026-06-30 (Session 17 — fifth review pass: Hook 1 SessionStart doc-loader)
 
 Continuing the now-established pattern, the coder instance pointed its fifth fresh-eyes pass at Hook 1 (the SessionStart doc-loader) — the single most load-bearing piece of Foundry, since it guarantees CLAUDE.md/DECISIONS.md/SESSIONS.md load every session without depending on the assistant remembering.
