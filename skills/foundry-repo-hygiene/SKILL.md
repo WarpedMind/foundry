@@ -11,13 +11,15 @@ Covers two things that are easy to get backwards or let slide silently: how a re
 
 ## Part 1 — new repo sequencing (use during initial setup)
 
+**`foundry-init` invokes this skill twice — once for Part 1 (Step 2.1, new-repo sequencing) and once for Part 2 (Step 2.7, ongoing-docs discipline).** Each invocation runs only its own Part, not both — Part 1 is unambiguously setup-only (first-commit sequencing) and Part 2 is unambiguously ongoing discipline (the `{{ADDITIONAL_RULES}}` addition and the standalone freshness check), so there's no overlap to accidentally re-run. Noted explicitly here (Session 19, cosmetic finding) since this file is the same target both times and previously had no internal marker saying so — the boundary lived only in `foundry-init`'s own prose about this skill.
+
 The common mistake this prevents: writing code first, committing it, *then* adding `.gitignore` and security rules — by which point a secret may already be in history (see `foundry-security` step 3 for what to do if that's already happened).
 
 **Check first whether this is even a git repo yet** (`git rev-parse --is-inside-work-tree` or equivalent). If not, and the project is meant to be version-controlled, `git init` is step 1 below, not assumed already done. If the user has deliberately chosen not to use git for this project, skip the git-specific steps below entirely (the doc/hook scaffolding still applies fine without git) rather than forcing a `git init` they didn't ask for.
 
 **Correct order for a brand-new project:**
 1. `git init`
-2. Write/merge `.gitignore` (via `foundry-security`, if the project handles secrets) — **before the first `git add`**, not after.
+2. Write/merge `.gitignore` — **before the first `git add`**, not after. This step always writes *something*, regardless of `HANDLES_SECRETS`: a seventh fresh-eyes review (Session 19) found that a non-secrets project previously got no `.gitignore` at all, because the only writer was `foundry-security`'s secrets-pattern baseline, gated entirely on `HANDLES_SECRETS=true`. A project with no credentials still has OS/build junk that shouldn't enter history (`.DS_Store`, `__pycache__/`, `node_modules/`, `.venv/`, `dist/`/`build/`, language-appropriate equivalents — infer from the stack named in Step 1's questionnaire). Write this universal baseline here, unconditionally, before the first commit. Then, **only if the project handles secrets**, hand off to `foundry-security`'s `.gitignore` step to merge the credential-pattern baseline on top (merge, never replace what was just written — same discipline as everywhere else). This makes `.gitignore` itself, not just its secrets-pattern subset, a universal first-commit concern.
 3. Run `foundry-docs` to create CLAUDE.md/DECISIONS.md/SESSIONS.md.
 4. Run `foundry-hooks` to wire the SessionStart loader (and secrets-guard, if applicable).
 5. Only then write/add actual project code.

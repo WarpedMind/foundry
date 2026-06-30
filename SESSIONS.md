@@ -1,6 +1,29 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 19 — seventh review pass: foundry-init orchestration logic)
+
+The coder instance's seventh fresh-eyes pass covered `foundry-init`'s own orchestration logic — the one surface the prior six rounds hadn't touched, per Session 18's own closing note about what remained unprobed.
+
+### What was found
+1. **Real gap.** A non-secrets project (`HANDLES_SECRETS=false`, a common and entirely legitimate case) never got a `.gitignore` at all. The only writer was `foundry-security`'s `.gitignore`-baseline step, gated on `HANDLES_SECRETS`; `foundry-init` Step 2 skips `foundry-security` outright for that flag. `foundry-repo-hygiene` Part 1 step 6's "first commit should include the scaffolding" then fires with nothing protecting OS/build junk (`.DS_Store`, `__pycache__/`, `node_modules/`, `.venv/`, build artifacts) from entering history permanently — the same class of cost `foundry-security` itself argues is expensive to fix after the fact, just reachable through an unrelated flag.
+2. **Cosmetic.** `foundry-repo-hygiene` is invoked twice per `foundry-init` run (Part 1 at Step 2.1, Part 2 at Step 2.7), pointing at the same file with no internal "stop here" marker — the Part 1/Part 2 boundary lived only in `foundry-init`'s prose, not in `foundry-repo-hygiene`'s own text. Resolves correctly in practice on a careful read (the two Parts are unambiguous), so this was flagged as cosmetic, not a real failure mode.
+3. **Checked and ruled out.** Suspected `foundry-security` might write into the shared `{{ADDITIONAL_RULES}}` field before `foundry-docs` creates that section (a race-condition concern, since the documented invariant requires every writer to read-then-append into a section that already exists). Confirmed by direct inspection that `foundry-security` only ever writes its own separate, `foundry-docs`-owned "Security Rules" block — never `{{ADDITIONAL_RULES}}`. The two real writers into that field (`foundry-stack`, `foundry-repo-hygiene` Part 2) both run after `foundry-docs` creates the section. The guard is sound; reported as a confirmed-non-issue, same discipline as the Session 13 sibling-directory false alarm.
+
+### What was verified before fixing anything
+Read `skills/foundry-repo-hygiene/SKILL.md`, `skills/foundry-security/SKILL.md`, and `skills/foundry-init/SKILL.md` in full and confirmed each claim directly against the actual text: line 20 of `foundry-repo-hygiene` genuinely gated `.gitignore` on "(via `foundry-security`, if the project handles secrets)"; `foundry-init` Step 2 genuinely skips `foundry-security` for `HANDLES_SECRETS=false`; `foundry-security`'s `.gitignore` baseline is genuinely all secrets-pattern content with no generic OS/build-junk patterns; and `foundry-security`'s steps genuinely never reference `{{ADDITIONAL_RULES}}`, only its own separate template block, ruling out finding 3.
+
+### What was fixed
+- `foundry-repo-hygiene` Part 1 step 2: now always writes a universal, stack-agnostic OS/build-junk `.gitignore` baseline unconditionally, before the first commit — regardless of `HANDLES_SECRETS`. `foundry-security`'s secrets-pattern baseline is layered on top (merge, not replace) only when the project handles secrets. `foundry-init` Step 2's sequencing note updated to match.
+- `foundry-repo-hygiene` Part 1: added a one-line cross-reference at the top stating both invocation points (Step 2.1 / Step 2.7) and that each runs only its own Part — makes the file self-contained rather than relying solely on `foundry-init`'s prose.
+- Finding 3: no fix needed, confirmed sound as designed.
+
+### Test harness
+Deliberately **not** added for finding 1, and the reasoning is itself the interesting part of this entry: the new OS/build-junk baseline was written as **prose judgment, not a fixed pattern list**, unlike `foundry-security`'s secrets patterns. Considered pinning a fixed, stack-agnostic list (mirroring `foundry-security`'s approach) and giving it a `run_fixtures.sh` case, but concluded that's the wrong model here on reflection — `foundry-security`'s fixed list works because secrets patterns are genuinely stack-agnostic (a `.pem` file is equally dangerous in any language), so a fixed list has no real downside. OS/build junk genuinely varies by stack — a fixed list would put `node_modules/` into a pure-Python project's `.gitignore` as misleading noise, not a neutral default, and the project's own "mechanism over reminder" principle is about *enforcement* (something always happening), not about content needing to be identical regardless of context. The cost of a missed `.pyc` entering history is also not in the same risk class as a missed credential pattern, which is what justifies `foundry-security`'s fixture-suite investment in the first place. No new test case added; this reasoning is recorded here rather than silently skipped, consistent with the standing discipline of always stating the test-harness decision explicitly.
+
+### What to do first next session
+Seven rounds now (Sessions 12-14, 16-19) have covered every Foundry skill/hook and the orchestrator's own sequencing. The one remaining known gap is `foundry-repo-hygiene`'s staleness checks (untested by real invocation) — not a fresh-eyes target, just unfinished work, to be confirmed naturally when a real project exercises it.
+
 ## 2026-06-30 (Session 18 — sixth review pass: foundry-governance and foundry-stack)
 
 The coder instance's sixth fresh-eyes pass covered the two remaining prose-only skills with no rendered command — `foundry-governance` and `foundry-stack`. With no shell command to fuzz, the review technique shifted: re-reading each skill's stated safeguards against constructed scenarios, looking for a written guarantee with an edge its own trigger condition doesn't cover.
