@@ -22,7 +22,7 @@ Foundry is a set of Claude Code skills (Markdown `SKILL.md` files), not compiled
 ./tests/run_fixtures.sh
 ```
 
-This re-runs the adversarial fixture checks for the `.gitignore` baseline and the secrets-guard pre-commit regex against the case lists in `tests/fixtures/`. It's also run automatically on every push/PR via `.github/workflows/fixtures.yml`. There is no broader test suite yet — most other skills are still verified by direct invocation against a scratch directory (see each skill's own `SKILL.md` for its specific verification steps).
+This re-runs five adversarial fixture suites: the `.gitignore` baseline and secrets-guard pre-commit regex (case lists in `tests/fixtures/`), Hook 4's directory-drift detection, Hook 3's status/offer logic, and the Hook 1/3 SessionStart merge guard (the latter three as inline cases in the script itself, since they parse structured input rather than matching a static filename against a pattern). It's also run automatically on every push/PR via `.github/workflows/fixtures.yml`. Prose-only skills (`foundry-governance`, `foundry-stack`, `foundry-repo-hygiene`'s sequencing) have no mechanical command to test this way and are still verified by direct invocation against a scratch directory or by re-reading the applied instruction text for internal consistency (see each skill's own `SKILL.md` for its specific verification steps).
 
 ## What Foundry deliberately does NOT do
 
