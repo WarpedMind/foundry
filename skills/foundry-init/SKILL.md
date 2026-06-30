@@ -49,7 +49,7 @@ Ask what they actually want — don't run anything they haven't asked for:
 > - **Governance / compliance sections** (`/foundry-governance`) — regulatory context and compliance notes
 > - **STACK.md career tracking** (`/foundry-stack`) — resume/portfolio tech-stack doc
 > - **Repo hygiene rules** (`/foundry-repo-hygiene`) — "keep docs current" discipline added to CLAUDE.md
-> - **All of the above** — run the full sequence (same as option 2 above, but Foundry will detect and protect existing files rather than treating this as a blank slate)
+> - **All of the above** — run the full sequence (same as option 2 above, but Foundry will detect and protect existing files rather than treating this as a blank slate). **Warn the user before they pick this**: on a mature project with real hand-written docs, "all of the above" is the highest-risk option, not the safest — foundry-docs will encounter existing CLAUDE.md/DECISIONS.md/SESSIONS.md and ask per-file what to do with each one. If their docs are already good, there's no upside. Recommend picking only the specific pieces they're missing instead, and reserve this option for projects that genuinely want the full Foundry template structure from scratch.
 
 Run only the selected sub-skills, in the dependency order defined in Step 2. Skip Step 0.5 (explain mode) and Step 1 (the full questionnaire) unless the user picks "All of the above" or is creating CLAUDE.md for the first time — in which case you need the questionnaire answers to derive the flags correctly.
 
