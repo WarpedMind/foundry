@@ -16,6 +16,27 @@ Not applicable — this is a documentation-discipline rule for the assistant to 
 ### What to do first next session
 This rule now applies to Foundry's own repo going forward — every push from here on should be checked against this Roadmap discipline before committing, eating Foundry's own dog food.
 
+## 2026-06-30 (Post-Session-19 follow-up #2 — README discipline's own skip-path gap)
+
+An eighth fresh-eyes review, a final high-level pass across the whole repo before calling the review series done, found one real issue in the brand-new mechanism built in the prior follow-up.
+
+### What was found
+The README-changelog-discipline skip path ("no Roadmap section yet, skip this entirely") wrote nothing to `.claude/settings.json`, leaving `foundry.readmeChangelogDiscipline` unset — indistinguishable from "never reached this check." A project that starts with a plain description-only README (correctly skipped) and later grows a Roadmap section would never get the one-time question asked, since nothing re-triggers it; the discipline silently never engages. Same underlying shape as every other finding across this whole review series: absence of a trigger condition treated as the safe/already-handled case rather than as "unknown, flag it." Also flagged in passing: a stray, untracked, empty `=` directory in the repo root.
+
+### What was verified before fixing anything
+Re-read the actual skip-path text in `skills/foundry-repo-hygiene/SKILL.md` and confirmed the gap is real — the instruction genuinely said "skip this entirely" with no corresponding settings write. Investigated the `=` directory directly: confirmed empty (only a nested empty `tmp/fake_root` inside), untracked, not referenced anywhere in Foundry's scripts or docs (`grep -rn fake_root` returned nothing), and created before this session's git history — concluded it's a one-off local shell artifact (e.g. an `=` token separated from an env-var assignment before a `mkdir -p`), not a Foundry-produced file, no further investigation warranted.
+
+### What was fixed
+- The skip path now records `foundry.readmeChangelogDiscipline: "not-applicable-yet"` instead of leaving the field untouched.
+- Added a new item to the standalone freshness check (item 6) that re-asks the discipline question if README later grows a Roadmap/changelog section while the flag is still `"not-applicable-yet"` — mirrors the existing pattern used for the minimal-scaffold-mode transition check (item 5).
+- Removed the stray `=` directory after confirming it was harmless and unrelated to Foundry.
+
+### Test harness
+Not applicable — same as the original README-discipline feature, this is a prose-instruction rule for the assistant to follow, not a mechanical command.
+
+### What to do first next session
+The reviewing instance's own framing: this was the last thing built specifically to stop this drift pattern, and it had the pattern baked into it on first pass — worth remembering as a caution that even a fix explicitly designed to catch "absence treated as safe" can reproduce that exact shape if not adversarially re-checked after being written, not just when first designed.
+
 ## 2026-06-30 (Session 19 — seventh review pass: foundry-init orchestration logic)
 
 The coder instance's seventh fresh-eyes pass covered `foundry-init`'s own orchestration logic — the one surface the prior six rounds hadn't touched, per Session 18's own closing note about what remained unprobed.
