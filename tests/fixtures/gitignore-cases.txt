@@ -19,6 +19,18 @@ ignore my-credentials.yaml
 ignore src/config/secrets.yaml
 ignore db.credentials
 ignore api.credentials.json
+ignore config.json
+ignore config/db.json
+ignore config/db.yaml
+ignore service-account.json
+ignore gcp-serviceaccount.json
+ignore id_rsa
+ignore id_ed25519
+ignore terraform.tfstate
+ignore terraform.tfstate.backup
+ignore prod.tfvars
+ignore .npmrc
+ignore cert.pfx
 keep .env.example
 keep secretary_notes.txt
 keep api_keynote.md
@@ -26,3 +38,6 @@ keep the_keymaster.rb
 keep monkey.py
 keep notes.md
 keep package.json
+keep id_rsa.pub
+keep id_ed25519.pub
+keep tsconfig.json

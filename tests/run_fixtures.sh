@@ -22,6 +22,10 @@ cat > "$TMPDIR/.gitignore" <<'EOF'
 *.key*
 config*.yaml*
 config*.yml*
+config*.json*
+config/**/*.yaml
+config/**/*.yml
+config/**/*.json
 secret*.yaml
 secret*.yml
 secret*.env
@@ -35,6 +39,16 @@ secret*.json
 *credential*.yml
 *credential*.json
 *.credentials*
+*service*account*.json
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.tfstate
+*.tfstate.*
+*.tfvars
+.npmrc
+*.pfx
 EOF
 git -C "$TMPDIR" init -q
 
@@ -61,7 +75,7 @@ while read -r expect path; do
   [ -z "${expect:-}" ] && continue
   case "$expect" in \#*) continue ;; esac
   STAGED="$path"
-  FORBIDDEN=$(echo "$STAGED" | grep -vE '(^|/)\.env\.example$' | grep -iE '(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)' || true)
+  FORBIDDEN=$(echo "$STAGED" | grep -vE '(^|/)\.env\.example$' | grep -iE '(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|/)config[^/]*\.json$|(^|/)config/.*\.json$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)|(^|[/_.-])service[_-]?account[_-]?.*\.json$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.[^/]*)?$|\.tfvars$|(^|/)\.npmrc$|\.pfx$' || true)
   if [ -n "$FORBIDDEN" ]; then
     actual=block
   else

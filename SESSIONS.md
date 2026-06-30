@@ -1,6 +1,33 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-29 (Session 13 — second review pass finds 6 more real gaps)
+
+After Session 12 shipped, the Karbot Rage instance was told what changed and explicitly invited to look again. Rather than re-checking the existing fixture file, it deliberately probed realistic filenames not yet covered by either fixture set — a better technique, since a fixture suite by construction can never catch a case nobody thought to write down.
+
+### What was found
+Six real, previously-undetected gaps in both the secrets-guard regex (`foundry-hooks/SKILL.md` Hook 2) and the `.gitignore` baseline (`foundry-security/SKILL.md` step 1):
+1. **JSON config files** — `config.json`/`config/db.json` slipped through; both patterns only covered YAML.
+2. **`service-account.json`-style GCP credential filenames** — no "secret"/"credential" substring at all, arguably the single most common real-world credential leak vector, completely invisible to the old pattern.
+3. **Bare-name SSH private keys** (`id_rsa`, `id_ed25519`, etc.) — the `.pem`/`.key` patterns required an extension these conventionally-named files don't have.
+4. **Terraform `.tfstate`/`.tfvars`** — both routinely contain plaintext secrets, well-known leak vector, not covered at all.
+5. **`.npmrc`** — frequently holds an npm auth token.
+6. **`.pfx`** cert bundles.
+
+### What was verified before trusting it
+- Independently reproduced every claimed gap myself before touching anything (per the standing verify-before-trust rule) — all six confirmed real against the live patterns, not just the reviewer's assertion.
+- While drafting the fix, caught two false-positive risks in my own first draft before they shipped: `id_rsa.pub` (the public key, safe to commit) wrongly blocked, and a realistic `service_account` filename variant (`my-service_account-key.json`) wrongly allowed. Both fixed and re-verified.
+- Extended both the secrets-guard regex and the `.gitignore` baseline (the same `config/**/*.json`-style directory gap from Session 12 applied to `.gitignore`'s glob syntax too, for the same underlying reason — a `config*` prefix glob doesn't match files *inside* a `config/` directory).
+- Fixture suite grew from 25 `.gitignore` + 23 secrets-guard cases to 40 + 44. All pass.
+
+### What was decided
+- The pattern-list approach to secrets detection is structurally, permanently incomplete — it enumerates known-bad name *patterns*, so by nature it will always miss whatever leak vector nobody has thought to add yet. This was already documented as an explicit "what this skill does NOT do" limitation, but Session 13 makes the point concrete: a real second pass with no special insight beyond "try filenames not already in the list" found 6 more real gaps in a five-minute exercise. The actual fix for this class of problem is a real content/pattern scanner (gitleaks/trufflehog), not an ever-growing filename list — noted explicitly in both SKILL.md files.
+- Periodically probing with new realistic filenames is a higher-value habit going forward than just re-running the existing fixture suite, since the suite only catches regressions in cases already on file.
+
+### What to do first next session
+- Use Foundry on more real projects.
+- Consider another fresh-eyes probing pass at some point — there's no reason to believe these six gaps are the last ones; this is a domain where "what did we miss" never fully closes out.
+
 ## 2026-06-29 (Session 12 — open-source readiness pass)
 
 Triggered by an unprompted external review from the Karbot Rage instance (Foundry's first real "customer"), which gave both praise and a ranked punch list of credibility gaps. Acted on the three findings ranked "blocking," skipped the "nice-to-have" ones as lower value for a single-maintainer repo right now.

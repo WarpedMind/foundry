@@ -20,6 +20,10 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
    *.key*
    config*.yaml*
    config*.yml*
+   config*.json*
+   config/**/*.yaml
+   config/**/*.yml
+   config/**/*.json
    secret*.yaml
    secret*.yml
    secret*.env
@@ -33,8 +37,20 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
    *credential*.yml
    *credential*.json
    *.credentials*
+   *service*account*.json
+   id_rsa
+   id_dsa
+   id_ecdsa
+   id_ed25519
+   *.tfstate
+   *.tfstate.*
+   *.tfvars
+   .npmrc
+   *.pfx
    ```
    An earlier version of this baseline used only the bare tokens (`.env`, `*.pem`, `*.key`, `config.yaml`, no wildcards around them) — an independent security review caught that this misses any filename with a suffix after the dangerous token (`.bak`, `.txt`, etc.) or a prefix before it (`secrets.env` vs. just `.env`). The pattern set above closes that gap; don't narrow it back to bare tokens for the sake of looking simpler.
+
+   **Session 13 extended this baseline** after a second external review pass deliberately probed filenames not yet in the fixture set (rather than just re-checking existing cases) and found real misses: JSON config files (`config*.json*` plus a `config/**/*.json` glob — gitignore's plain `config*` prefix glob doesn't match files *inside* a `config/` directory the way the secrets-guard regex needed a separate alternative for the same reason, see Hook 2 in `foundry-hooks/SKILL.md`), GCP-style `service-account.json` credential files, bare-name SSH private keys (`id_rsa`/`id_ed25519`/etc., deliberately not matching their `.pub` counterparts, which are safe to commit), Terraform `.tfstate`/`.tfvars` files, `.npmrc`, and `.pfx` cert bundles. Verified both directions (new patterns ignore the new bad cases, while `id_rsa.pub`/`package.json`/etc. remain unignored) before merging — see `tests/fixtures/gitignore-cases.txt`.
 
    Note this baseline does **not** ignore source code files that merely contain "secret" in their name (e.g. `app_secret_key.rb`) — `.gitignore` glob syntax can't reliably distinguish that from a false-positive like `secretary_notes.txt` (bare `*secret*` would catch both). That class of risk — a real secret hardcoded inside an otherwise-legitimate source file — is handled by the secrets-guard commit hook (`foundry-hooks` Hook 2), which uses regex with proper word-boundary matching, not by `.gitignore`.
 
