@@ -189,6 +189,37 @@ cd "$REPO_ROOT"
 rm -rf "$STATUS_TMPDIR"
 echo "  done."
 
+# --- Hook 1/3 merge guard: type-checked SessionStart merge ---
+# Pure jq logic (no shell-quoting/JSON-escaping involved), so cases are plain
+# jq invocations rather than full rendered-command extraction like Hooks 3/4.
+echo "== SessionStart merge guard (Hook 1/3 install step, skills/foundry-hooks/SKILL.md) =="
+
+merge_guard() {
+  echo "$1" | jq 'if (.hooks.SessionStart | type) == "array"
+      then .hooks.SessionStart += [{"hooks":[{"type":"command","command":$cmd}]}]
+      elif (.hooks.SessionStart | type) == "object"
+      then .hooks.SessionStart = [.hooks.SessionStart, {"hooks":[{"type":"command","command":$cmd}]}]
+      else .hooks.SessionStart = [{"hooks":[{"type":"command","command":$cmd}]}]
+      end' --arg cmd "echo new" 2>/dev/null
+}
+
+check_merge_case() {
+  local label="$1" input="$2"
+  local out
+  out=$(merge_guard "$input")
+  if ! echo "$out" | jq -e '.hooks.SessionStart | type == "array"' >/dev/null 2>&1; then
+    echo "  FAIL: $label — merge did not produce an array, got: $out"
+    FAIL=1
+  fi
+}
+
+check_merge_case "bare-object SessionStart (the reported failure)" '{"hooks":{"SessionStart":{"command":"echo old"}}}'
+check_merge_case "existing array"                                  '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo existing"}]}]}}'
+check_merge_case "no hooks key"                                    '{}'
+check_merge_case "hooks key, no SessionStart"                      '{"hooks":{"PreToolUse":[]}}'
+check_merge_case "other settings present, no hooks"                '{"permissions":{"allow":["Bash(npm *)"]}}'
+echo "  done."
+
 if [ "$FAIL" -eq 0 ]; then
   echo "All fixture cases passed."
 else

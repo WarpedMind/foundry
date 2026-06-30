@@ -1,6 +1,42 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 17 — fifth review pass: Hook 1 SessionStart doc-loader)
+
+Continuing the now-established pattern, the coder instance pointed its fifth fresh-eyes pass at Hook 1 (the SessionStart doc-loader) — the single most load-bearing piece of Foundry, since it guarantees CLAUDE.md/DECISIONS.md/SESSIONS.md load every session without depending on the assistant remembering.
+
+### What was found
+The review fuzzed the actual rendered command (`jq -n --arg` building the JSON payload) with a wide range of adversarial content: literal double-quotes, backtick/`$()` command-substitution syntax, literal `\n`, raw control bytes (`\x01\x02`), invalid UTF-8 sequences, a 500KB file, an empty file, a missing file, and a symlink to an outside file. Every case produced valid JSON with `hookSpecificOutput` correctly present — `jq --arg` handles its own escaping at the encoding level rather than the shell hand-building a JSON string, which is exactly why this hook doesn't have the class of bug the regex-based hooks (2/3/4) had. Filename injection via `{{DOC_FILES_QUOTED}}` was also ruled out as a real attack surface, since the candidate list is always the fixed literal set (CLAUDE.md/DECISIONS.md/SESSIONS.md/STACK.md), never user-controlled input.
+
+One real, reproducible gap was found — in the *merge logic*, not the rendered command. Step 4 of `skills/foundry-hooks/SKILL.md`'s Hook 1 section said only: "If `.claude/settings.json` already exists in the project, read it first and merge... If a SessionStart hook already exists with a similar doc-loading command, ask the user whether to replace or keep both." This is the only place in the whole skill where "merge" is pure prose with no concrete check specified — every other validation step gives an explicit `jq -e` command to run. The review constructed the case where `hooks.SessionStart` already exists but as a bare object (an older/alternate shape, or something a user hand-wrote) rather than an array:
+```json
+{"hooks": {"SessionStart": {"command": "echo old-style-single-hook"}}}
+```
+The natural merge an executing agent would reach for, `jq '.hooks.SessionStart += [newEntry]'`, fails outright: `jq: error: object and array cannot be added`. Nothing in the instructions said to check the existing type first — it assumed the existing shape was already an array. Same class of issue as Session 16's Hook 3 type-checking gap, but here it's not a cosmetic message — it's a hard error that would block the entire hook-install step on a real, plausible existing-project shape.
+
+### What was verified before fixing anything
+Reproduced the exact failure directly: `jq '.hooks.SessionStart += [...]'` against the bare-object shape above produced `jq: error (at .claude/settings.json:1): object ({"command":...) and array ([{"hooks":[...) cannot be added`, exit code 5 — confirmed as described, not assumed. Also spot-checked the "rendered command is solid" claim independently (adversarial content in a doc file, missing file) rather than taking it purely on the review's word — both confirmed valid JSON output in every case, consistent with the report.
+
+### What was fixed
+Replaced the bare `+=` with a type-checked `jq` merge in `skills/foundry-hooks/SKILL.md` step 4:
+```bash
+jq 'if (.hooks.SessionStart | type) == "array"
+    then .hooks.SessionStart += [{"hooks":[{"type":"command","command":$cmd}]}]
+    elif (.hooks.SessionStart | type) == "object"
+    then .hooks.SessionStart = [.hooks.SessionStart, {"hooks":[{"type":"command","command":$cmd}]}]
+    else .hooks.SessionStart = [{"hooks":[{"type":"command","command":$cmd}]}]
+    end' --arg cmd "$RENDERED_COMMAND" .claude/settings.json
+```
+This preserves an existing bare-object hook (wraps it into the array alongside the new entry, rather than discarding it) instead of just avoiding the crash. Cross-referenced from Hook 3's own merge step (same `.hooks.SessionStart` target, same fix, no need to duplicate the explanation) since Hook 3 install can hit the identical existing-shape problem.
+
+Verified against all four plausible starting shapes for `.claude/settings.json`: existing array (appends correctly), bare-object `SessionStart` (the reported failure — now wraps both entries into an array, no data loss), no `hooks` key at all, and a `hooks` object with other events but no `SessionStart` key — all four produced valid, schema-correct output. Malformed JSON was also checked and confirmed to still fail (correctly — no merge strategy can repair already-invalid JSON; this isn't a regression, every other Foundry validation step relies on the same fail-loud behavior).
+
+### Test harness
+Added a fifth inline suite to `tests/run_fixtures.sh` for the merge guard — 5 cases. Unlike Hooks 3/4, this is pure `jq` logic with no shell-quoting or JSON-escaping involved, so no command-extraction-from-template step was needed; the guard expression is tested directly against each input shape.
+
+### What to do first next session
+Five review rounds now (Sessions 12-14, 16-17) have each found real gaps by probing something with no prior adversarial-review history. The remaining unprobed surface: `foundry-governance` and `foundry-stack`. Pick one for the next pass.
+
 ## 2026-06-30 (Session 16 — fourth review pass: Hook 3 status/offer hook)
 
 Following Session 15's invitation to point the next fresh-eyes pass at something not yet probed, the coder instance reviewed Hook 3 (status/offer) and reported 5 findings, explicitly labeled by severity (real bug vs. lower-severity/no-action), with the assessment that none were security holes (unlike the secrets-guard gaps) — worst case is a confusing status message.
