@@ -1,6 +1,21 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Post-Session-19 follow-up — README discipline)
+
+Not a fresh-eyes review round — caught directly when the user asked "have you been updating the readme per push?" The honest answer was no: README.md's Roadmap hadn't been touched since Session 16 (3 rounds behind), and CONTRIBUTING.md's test-suite description still said "no broader test suite yet" despite `run_fixtures.sh` having grown to 5 suites since. CLAUDE.md/SESSIONS.md were genuinely kept current every round; README/CONTRIBUTING were not, and that asymmetry is itself the finding.
+
+### What was fixed
+- README.md's Roadmap: added entries for Sessions 17 (SessionStart merge guard), 18 (governance/stack prose hardening), and 19 (missing `.gitignore` fix).
+- CONTRIBUTING.md: corrected the test-suite description to name all 5 `run_fixtures.sh` suites and note which skills are prose-only with no mechanical test path.
+- Generalized into a real Foundry feature rather than leaving it a one-off catch-up: added a **README changelog/roadmap discipline** to `skills/foundry-repo-hygiene/SKILL.md` Part 2. New `foundry.readmeChangelogDiscipline` setting, asked once — the first time a push would update CLAUDE.md/SESSIONS.md without a corresponding README change, not at `foundry-init` time when there's no README content yet to judge. Default recommendation `on`; the user's actual choice is recorded in `.claude/settings.json`, not re-asked every push. Skipped entirely if the project's README has no Roadmap/changelog-style section.
+
+### Test harness
+Not applicable — this is a documentation-discipline rule for the assistant to follow, same prose-instruction shape as Session 18's findings, not a mechanical command. Recorded explicitly rather than skipped.
+
+### What to do first next session
+This rule now applies to Foundry's own repo going forward — every push from here on should be checked against this Roadmap discipline before committing, eating Foundry's own dog food.
+
 ## 2026-06-30 (Session 19 — seventh review pass: foundry-init orchestration logic)
 
 The coder instance's seventh fresh-eyes pass covered `foundry-init`'s own orchestration logic — the one surface the prior six rounds hadn't touched, per Session 18's own closing note about what remained unprobed.
