@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "SCAFFOLDED=$(jq -r '.foundry.scaffolded // false' .claude/settings.json 2>/dev/null || echo false); DISMISSED=$(jq -r '.foundry.dismissed // false' .claude/settings.json 2>/dev/null || echo false); DATE=$(jq -r '.foundry.scaffoldedDate // \"\"' .claude/settings.json 2>/dev/null || echo \"\"); if [ \"$SCAFFOLDED\" = \"true\" ]; then MSG=\"Foundry: Active (scaffolded $DATE)\"; elif [ \"$DISMISSED\" = \"true\" ]; then MSG=\"\"; else MSG='Foundry: not set up in this project. Run /foundry-init to scaffold it (docs, hooks, security baseline), or say \"skip foundry for this project\" to dismiss.'; fi; jq -n --arg msg \"$MSG\" '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: $msg}}'",
+            "command": "SCAFFOLDED=$(jq -r '.foundry.scaffolded // false' .claude/settings.json 2>/dev/null || echo false); DISMISSED=$(jq -r '.foundry.dismissed // false' .claude/settings.json 2>/dev/null || echo false); DATE=$(jq -r '.foundry.scaffoldedDate // \"\"' .claude/settings.json 2>/dev/null || echo \"\"); if [ \"$SCAFFOLDED\" = \"true\" ]; then MSG=\"Foundry: Active (scaffolded $DATE)\"; elif [ \"$DISMISSED\" = \"true\" ]; then MSG=\"\"; else MSG=\"New project detected - Foundry is not set up here yet. Want persistent memory, security guardrails, and auto-loaded docs for every future session? Type /foundry-init to get set up (takes about 2 minutes). Not interested? Say: skip foundry for this project\"; fi; jq -n --arg msg \"$MSG\" '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: $msg}}'",
             "statusMessage": "Checking Foundry status..."
           }
         ]
