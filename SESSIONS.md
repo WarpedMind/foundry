@@ -1,6 +1,27 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-29 (Session 12 — open-source readiness pass)
+
+Triggered by an unprompted external review from the Karbot Rage instance (Foundry's first real "customer"), which gave both praise and a ranked punch list of credibility gaps. Acted on the three findings ranked "blocking," skipped the "nice-to-have" ones as lower value for a single-maintainer repo right now.
+
+### What was built
+1. **Secrets-guard limitation surfaced in README.md**, not just buried in `skills/foundry-security/SKILL.md`. The "What it does" section now states plainly that the hook/`.gitignore` baseline is filename-based only and does not scan source-code contents for hardcoded secrets, with a link to gitleaks/trufflehog and to USER_GUIDE.md's full limitations list.
+2. **Committed, re-runnable adversarial fixture suite**: `tests/run_fixtures.sh` + `tests/fixtures/gitignore-cases.txt` + `tests/fixtures/secrets-guard-cases.txt`. Previously, "verified against a 21/25-file adversarial fixture" was a one-time manual claim in prose with nothing to re-run. Wired into `.github/workflows/fixtures.yml` so it runs on every push/PR.
+3. **CONTRIBUTING.md** — dev setup, fixture-suite usage, and PR expectations for external contributors. Linked from README.
+
+### What was decided
+- Did not act on the "nice-to-have" items from the review (broader CI beyond the fixture suite, de-duplicating shared regex-validation prose between `foundry-hooks`/`foundry-security`, extracting `{{DOC_FILES_QUOTED}}`-style template substitution into a reference script). Judged as real but lower-value-per-effort for a single-maintainer skills repo right now — left as ideas, not tracked as KNOWN DEBT.
+
+### Verification
+- Building the fixture suite immediately found a real, previously-undetected regex gap: the secrets-guard pattern's `config[^/]*\.ya?ml` alternative matched `config.yaml` and `src/config.yaml` but missed `config/prod.yaml` (a file inside a `config/` directory, not a file with a `config`-prefixed name). This had been claimed as "verified against a 21-file adversarial fixture" in `skills/foundry-hooks/SKILL.md` prose — the fixture had apparently never actually included this exact case.
+- Fixed by adding a second alternative (`(^|/)config/.*\.ya?ml(\.[^/]*)?$`) to the pattern in `skills/foundry-hooks/SKILL.md` Hook 2 and to `tests/run_fixtures.sh`'s copy of the same pattern. Added `config/prod.yaml` and `config/sub/deep.yaml` to `tests/fixtures/secrets-guard-cases.txt`. Re-ran the full suite — all cases pass (`.gitignore` baseline: 25 cases; secrets-guard: 23 cases).
+- This is direct, concrete evidence for the review's own underlying claim — that prose-only "tested" claims without committed tests are a real credibility risk, not a hypothetical one.
+
+### What to do first next session
+- Use Foundry on more real projects — still the main remaining test.
+- If the secrets-guard or `.gitignore` patterns are ever extended again, add fixture cases first and run `tests/run_fixtures.sh` before trusting the change — this is now a standing CLAUDE.md rule.
+
 ## 2026-06-29 (Session 11 continued — UX gaps from real first-use on Karbot Rage)
 
 Four gaps surfaced and closed after watching Foundry's first real use on an existing mature project (Karbot Rage).

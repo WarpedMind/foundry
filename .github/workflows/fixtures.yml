@@ -1,0 +1,17 @@
+name: Adversarial fixture tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure git identity (required for git init in fixture test)
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+      - name: Run secrets-guard / .gitignore fixture suite
+        run: ./tests/run_fixtures.sh

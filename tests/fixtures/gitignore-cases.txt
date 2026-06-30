@@ -1,0 +1,28 @@
+# Format: <expect:ignore|keep> <path>
+# "ignore" cases must be caught by foundry-security's .gitignore baseline (skills/foundry-security/SKILL.md step 1).
+# "keep" cases must NOT be caught (false positives would block legitimate files from being committed).
+ignore .env
+ignore .env.local
+ignore .env.production
+ignore secrets.env
+ignore real.pem
+ignore real.key.txt
+ignore config.yaml
+ignore config.yaml.bak
+ignore config.prod.yml
+ignore secret.yaml
+ignore secret.json
+ignore my-secret.yaml
+ignore app_secret.yaml
+ignore aws_credentials.json
+ignore my-credentials.yaml
+ignore src/config/secrets.yaml
+ignore db.credentials
+ignore api.credentials.json
+keep .env.example
+keep secretary_notes.txt
+keep api_keynote.md
+keep the_keymaster.rb
+keep monkey.py
+keep notes.md
+keep package.json

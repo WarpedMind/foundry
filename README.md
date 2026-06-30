@@ -17,7 +17,7 @@ I'm Tom Grow, a certified CAIO and founding partner of [CAIO Consultants](https:
 - **`CLAUDE.md`, `DECISIONS.md`, `SESSIONS.md`** — a fixed core structure every Foundry project shares, with optional sections (Security Rules, Regulatory Context, Compliance/Audit Trail) added only when the questionnaire says they're actually relevant. A 10-line personal script gets 3 lines of CLAUDE.md, not a compliance checklist.
 - **A `SessionStart` hook** that loads those docs into context automatically at the start of every session — not dependent on the assistant remembering to ask, because that dependency has already failed in practice (see [`docs/HOWS_AND_WHYS.md`](docs/HOWS_AND_WHYS.md)).
 - **A status hook** that, on every future session, silently confirms "Foundry: Active" if the project is already scaffolded, stays silent if you've explicitly dismissed it, or offers `/foundry-init` if neither — so you see the offer exactly when it's relevant, never as noise.
-- **A `.gitignore` baseline and secrets-guard pre-commit hook**, only for projects that actually handle credentials.
+- **A `.gitignore` baseline and secrets-guard pre-commit hook**, only for projects that actually handle credentials. **Important limitation:** this catches secret-adjacent filenames (`.env`, `*.pem`, `config.yaml`, etc.) and already-committed secrets in those files — it does **not** scan file contents for a hardcoded secret sitting in an otherwise-ordinary source file (e.g. an API key string literal in a `.py`/`.js` file). For that, pair Foundry with a dedicated secret-scanning tool like [gitleaks](https://github.com/gitleaks/gitleaks) or [trufflehog](https://github.com/trufflesecurity/trufflehog). See [What Foundry does NOT do](USER_GUIDE.md#what-foundry-does-not-do-read-this-before-you-rely-on-it) for the full list of limitations.
 - **Repo hygiene**: correct sequencing for a brand-new repo (`.gitignore` before the first commit, not after) and a standing discipline for keeping README/SESSIONS.md honest as the project changes.
 - **Honest governance scaffolding**: when a project is flagged as regulated, Foundry writes either real, project-specific regulatory context, or an explicit "not yet researched — get this reviewed before relying on it" placeholder. It never fabricates plausible-sounding compliance language to fill a gap.
 - **Optional `STACK.md`**: a career/portfolio record of what was actually used, when, and why — for resume bullets and interview prep, distinct in audience and lifecycle from the other docs. Every non-trivial entry has to state why that choice over the alternatives (inline, or cross-referenced to DECISIONS.md), not just name a technology.
@@ -93,6 +93,10 @@ See [`docs/HOWS_AND_WHYS.md`](docs/HOWS_AND_WHYS.md) for the reasoning behind ea
 If Foundry was useful, a star or a follow on [GitHub](https://github.com/WarpedMind) is always appreciated — no pressure, just genuinely nice to know it landed somewhere.
 
 I'm also open to dev work and consulting — feel free to connect on [LinkedIn](https://www.linkedin.com/in/tomgrow/) or reach me at [tom@caioconsultants.com](mailto:tom@caioconsultants.com). CAIO Consultants provides fractional and full-time Chief AI Officer services for companies serious about AI — strategy, governance, and implementation oversight without the full-time executive overhead. More at [caioconsultants.com](https://caioconsultants.com).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, the test suite, and what to check before opening a PR.
 
 ## License
 
