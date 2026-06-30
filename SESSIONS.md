@@ -1,6 +1,27 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-29 (Session 11 — existing-project path; gap audit)
+
+Real user scenario surfaced a gap: running `/foundry-init` on Karbot Rage (a mature project with hand-written docs) showed a two-option prompt ("throwaway or real project?") with no path for "this already has docs."
+
+### What was built
+- `foundry-init` Step 0 now has three explicit options: throwaway, new real project, existing project. Option 3 routes to a new `Step 0-E` that presents a menu of specific pieces (hooks, secrets guard, docs, governance, stack, hygiene, or all) and runs only what's selected — skipping the full questionnaire unless creating docs fresh.
+- Removed the old disconnected "Notes on retrofitting" section at the bottom of `foundry-init/SKILL.md` — that logic is now integrated into the primary flow where it belongs.
+- `foundry-hooks` Hook 3 fixed for standalone use: now always asks whether to mark `foundry.scaffolded: true` when wired on a project that already has docs, rather than leaving it perpetually offering `/foundry-init`.
+- `USER_GUIDE.md` section 2 and decision guide updated to reflect the three-way choice.
+- Frontmatter description updated to name all three paths explicitly.
+
+### What was decided
+- Full gap audit of all 7 sub-skills run this session — `foundry-docs`, `foundry-security`, `foundry-governance`, `foundry-stack`, `foundry-repo-hygiene` all clean; only `foundry-init` and `foundry-hooks` needed changes.
+- The "existing project" path was a real gap, not just a UX polish item — without it, any user who ran `/foundry-init` on a mature project was one mis-click away from running the full questionnaire and potentially triggering foundry-docs' overwrite-protection flow on their hand-written CLAUDE.md.
+
+### Verification
+- Audited all 7 sub-skills by reading each SKILL.md in full, looking specifically for the same class of gap (missing third option, disconnected footnotes, standalone-vs-orchestrated behavior differences). Only the two above needed changes.
+
+### What to do first next session
+- Use Foundry on real projects — no more constructed test scenarios needed.
+
 ## 2026-06-28 (Session 10 — Promptify model/effort suggestion; public-launch prep)
 
 The user asked whether Foundry should help pick which model/effort level to use per task (e.g. Haiku for simple lookups, Opus for complex work) — framed as automatic routing to save cost and avoid under/over-powering a request.
