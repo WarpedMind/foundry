@@ -1,6 +1,46 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 16 — fourth review pass: Hook 3 status/offer hook)
+
+Following Session 15's invitation to point the next fresh-eyes pass at something not yet probed, the coder instance reviewed Hook 3 (status/offer) and reported 5 findings, explicitly labeled by severity (real bug vs. lower-severity/no-action), with the assessment that none were security holes (unlike the secrets-guard gaps) — worst case is a confusing status message.
+
+### What was found
+1. **Real, user-visible bug**: `scaffolded: true` with a missing or empty `scaffoldedDate` rendered the literal broken message `"Foundry: Active (scaffolded )"` — trailing space, empty parens content. A real reachable state (future bug or hand-edit), not synthetic.
+2. Empty `.claude/settings.json` produces an empty-string `SCAFFOLDED`/`DISMISSED` rather than the intended literal `"false"` — currently happens to compare false correctly, but is the wrong value, a latent footgun if comparison logic elsewhere changes.
+3. No type distinction between a JSON string `"true"` and boolean `true` for `scaffolded`/`dismissed` — `jq -r` stringifies both identically before reaching bash's `[ = "true" ]`.
+4. A self-contradictory state (`scaffolded: true` AND `dismissed: true` simultaneously) is silently resolved by checking `scaffolded` first, with nothing flagging the inconsistency.
+5. No detection of a missing `jq` binary — every extraction silently degrades to the "not set up" message with no indication the real cause is a missing dependency. `jq` was not documented anywhere as a prerequisite.
+
+Malformed JSON, top-level array, and empty-object cases were also checked and confirmed to degrade safely to the "not set up" message — the fail-safe direction already works correctly.
+
+### What was verified before fixing anything
+Independently reproduced all five claims against the real, JSON-embedded command extracted from `templates/settings.status.json.template` (not a simplified version) before touching anything:
+- Empty file → `SCAFFOLDED=[]` (empty string, not `"false"`) — confirmed.
+- `scaffolded:true`, no date → literal output `"Foundry: Active (scaffolded )"` — confirmed, reproduced exactly as described.
+- String `"true"` vs. boolean `true` → both produce identical `SCAFFOLDED=[true]` — confirmed no distinction.
+- Both flags `true` simultaneously → confirmed silently resolved by precedence, no flag raised.
+- `jq` removed from `PATH` (via a scoped fake-`PATH` directory containing only other needed tools, not a full `PATH` wipe, since that broke `bash` itself on the first attempt) → confirmed silent degradation to the "not set up" offer message.
+- Confirmed `jq` is genuinely undocumented anywhere in README.md or USER_GUIDE.md.
+
+### What was fixed
+- Replaced the `|| echo false` fallback (which only fired on an actual `jq` process failure) with an explicit `[ -z "$VAR" ] && VAR=default` guard applied uniformly to `SCAFFOLDED`, `DISMISSED`, and `DATE` — this closes both #1 and #2 from the same root cause (any empty-string extraction, whatever the cause, now reliably resolves to a real default rather than an ambiguous empty string). `DATE` defaults to the literal string `"an unknown date"` instead of empty, eliminating the broken trailing-space message.
+- Re-verified the fix against 9 cases run through the real, applied, JSON-embedded command (not a scratch draft): empty file, missing date, empty-string date, normal date, dismissed, neither, malformed JSON, top-level array, and the string-`"true"` case — all produce the correct message and valid JSON output.
+
+### What was judged out of scope, not silently dropped
+- #3 (string-vs-boolean leniency): adding a true type check would mean a second `jq` call and another failure branch to guard against what's fundamentally a hand-edit-typo scenario — judged not worth the complexity, and arguably reasonable behavior anyway (a user hand-editing `"true"` almost certainly means the same thing as `true`).
+- #4 (contradictory state): accepted as a reasonable tiebreak, since `foundry-init` and the dismiss flow — the only writers of these fields — don't produce this combination under normal operation.
+- #5 (missing-`jq` detection): not patched locally in this one hook, since `jq` is an undocumented hard dependency for *every* Foundry hook (1 through 4), not just Hook 3 — fixing detection in one hook wouldn't close the real gap. Instead added a Prerequisites note to README.md's Install section and a Roadmap entry recording this as now-done documentation work.
+
+All three reasoned-through, not-fixed items are written into `skills/foundry-hooks/SKILL.md`'s Hook 3 section with their reasoning, not left as unexplained gaps.
+
+### Test harness
+Same approach as Session 15's Hook 4 harness: Hook 3 doesn't fit `tests/fixtures/*.txt`'s shape (it branches on JSON-field string equality, not a static filename match), so 9 cases were added inline to `tests/run_fixtures.sh`, run against the real applied template via `jq` extraction. Required a path-handling fix during development: the script's existing `cd "$(dirname "$0")"` meant a naive `$OLDPWD` reference resolved to `tests/`, not the repo root — fixed by capturing an explicit `REPO_ROOT` variable right after the initial `cd`, then verified the whole suite still passes when invoked from an arbitrary external directory (`cd /tmp && bash .../run_fixtures.sh`), not just from inside the repo.
+
+### What to do first next session
+- Four review rounds now (Sessions 12-14, 16) have each found real, previously-unverified gaps by probing something with no prior adversarial-review history. The remaining unprobed surface: Hook 1 (doc-loader), `foundry-governance`, `foundry-stack`. Pick one for the next pass.
+- The Session 15 doc-restructure plan (archive doc for older SESSIONS.md/CLAUDE.md entries) is still open — not urgent, but now deferred across two sessions.
+
 ## 2026-06-30 (Session 15 — fixed Hook 4's three gaps, built its test harness, doc-staleness pass)
 
 Picked up directly from Session 14's findings (3 confirmed gaps in `foundry-hooks` Hook 4, reported but not fixed). Followed the same verify-fix-adversarially-recheck discipline as Sessions 12-13.

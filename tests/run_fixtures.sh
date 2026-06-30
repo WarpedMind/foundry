@@ -7,6 +7,7 @@
 # manual check from when the pattern was designed.
 set -euo pipefail
 cd "$(dirname "$0")"
+REPO_ROOT="$(cd .. && pwd)"
 
 FAIL=0
 
@@ -151,6 +152,41 @@ check_drift_case silent  "$DROOT" "cd_helper $DOTHER"              "cd-prefixed 
 check_drift_case silent  "$DROOT" "echo pushd $DOTHER"             "pushd not at start of command"
 
 rm -rf "$DRIFT_TMPDIR" "$DHOMEOTHER"
+echo "  done."
+
+# --- Hook 3: status/offer hook ---
+# Same inline-case approach as Hook 4: this hook reads JSON fields and branches
+# on string equality, not a static filename, so it doesn't fit *.txt's shape.
+echo "== status/offer hook (Hook 3, templates/settings.status.json.template) =="
+STATUS_TMPDIR=$(mktemp -d)
+STATUS_CMD=$(jq -r '.hooks.SessionStart[].hooks[] | select(.type=="command") | .command' "$REPO_ROOT/templates/settings.status.json.template")
+cd "$STATUS_TMPDIR"
+
+check_status_case() {
+  local label="$1" content="$2" expect_substr="$3"
+  mkdir -p .claude
+  printf '%s' "$content" > .claude/settings.json
+  local actual
+  actual=$(echo '{}' | bash -c "$STATUS_CMD" | jq -r '.hookSpecificOutput.additionalContext')
+  case "$actual" in
+    *"$expect_substr"*) ;;
+    *) echo "  FAIL: $label — expected substring '$expect_substr', got '$actual'"; FAIL=1 ;;
+  esac
+}
+
+check_status_case "empty file"                  ""                                                                  "not set up"
+check_status_case "scaffolded, no date"          '{"foundry":{"scaffolded":true}}'                                  "Foundry: Active (scaffolded an unknown date)"
+check_status_case "scaffolded, empty date"       '{"foundry":{"scaffolded":true,"scaffoldedDate":""}}'              "Foundry: Active (scaffolded an unknown date)"
+check_status_case "scaffolded, normal date"      '{"foundry":{"scaffolded":true,"scaffoldedDate":"2026-01-01"}}'    "Foundry: Active (scaffolded 2026-01-01)"
+check_status_case "dismissed"                    '{"foundry":{"dismissed":true}}'                                   ""
+check_status_case "neither"                      '{}'                                                                "not set up"
+check_status_case "malformed json"               '{not valid'                                                        "not set up"
+check_status_case "top-level array"              '[1,2,3]'                                                           "not set up"
+check_status_case "string \"true\" not boolean"  '{"foundry":{"scaffolded":"true","scaffoldedDate":"2026-02-02"}}'   "Foundry: Active (scaffolded 2026-02-02)"
+check_status_case "contradictory both true"      '{"foundry":{"scaffolded":true,"dismissed":true,"scaffoldedDate":"2026-03-03"}}' "Foundry: Active (scaffolded 2026-03-03)"
+
+cd "$REPO_ROOT"
+rm -rf "$STATUS_TMPDIR"
 echo "  done."
 
 if [ "$FAIL" -eq 0 ]; then

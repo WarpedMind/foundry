@@ -36,6 +36,8 @@ Each piece above is also an independently invocable skill (`/foundry-docs`, `/fo
 
 ## Install
 
+**Prerequisites:** `jq` and Bash (`/bin/bash`). Every hook Foundry wires into a project's `.claude/settings.json` shells out to `jq` to read/write hook payloads — without it, hooks degrade silently (e.g. the status hook falls back to "not set up" with no indication `jq` itself is the actual problem) rather than erroring loudly. Most macOS/Linux dev machines already have both; if `jq -h` fails, install it first (`brew install jq` / `apt install jq` / etc.).
+
 ```bash
 git clone https://github.com/WarpedMind/foundry ~/Projects/foundry
 ~/Projects/foundry/install.sh
@@ -73,6 +75,7 @@ See [`docs/HOWS_AND_WHYS.md`](docs/HOWS_AND_WHYS.md) for the reasoning behind ea
 
 ## Roadmap
 
+- [x] ~~Document `jq` as a hard prerequisite~~ — **done.** A fourth fresh-eyes review (Session 16) found that every Foundry hook silently degrades (rather than erroring) if `jq` is missing from `PATH`, with no doc anywhere stating it's required. Added a Prerequisites note above Install.
 - [ ] Proactive code-review agents (security-focused, quality-focused) wired via `PostToolUse` hooks — deliberately deferred out of the initial build to avoid scope creep; needs its own design pass (blocking vs. advisory, noise tuning, and which existing tools — e.g. a project's own `/code-review` or `/owasp-security`/security-review skills — to invoke rather than duplicate).
 - [x] ~~Standalone fresh-context QC/adversarial-review skill~~ — **built (`qc-review`)**. Lives alongside Promptify as a referenced-not-owned tool, same pattern. Default trigger: on-demand (`/qc-review`) plus a proactive offer at natural checkpoints (never automatic) — a mechanical `PostToolUse` auto-run mode was deliberately scoped as opt-in-only, not the default, since it would fire on every edit rather than at a real completion checkpoint, with no way to block (the edit already happened by the time `PostToolUse` fires). Findings are verified (reproduced, not just relayed — same verify-before-trust standard as the rest of Foundry) before being appended to CLAUDE.md's `KNOWN DEBT`, labeled `[QC review, <date>]` so the source is never ambiguous to a later reader.
 - [ ] Pluggable external skill-pack support (Claude Code's plugin/marketplace mechanism) for community-contributed additions — intentionally not bundling any specific named third-party pack until independently verified.
