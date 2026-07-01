@@ -185,13 +185,42 @@ You'll be offered four scopes:
 
 Foundry will always read the current docs before proposing anything, compare against the session history, flag any conflicts it finds, and show you a draft before writing a single line — it never auto-updates docs from session history.
 
+## One project, many platforms — the rule in one page
+
+You only run `/foundry-init` **once per project.** You never re-run it just because you're switching between terminal, the desktop app, VSCode, or browser — the scaffold is a set of files written once, to disk, inside the project folder. Every platform is just reading those same files.
+
+The one thing that changes per platform is **how each one gets to those files**, and that's the whole source of confusion:
+
+| Platform | Where it looks | When it sees your latest scaffold |
+|---|---|---|
+| Terminal | Your shell's actual cwd on disk | Instantly — reads the files directly |
+| Desktop app | The folder you select in its folder picker | Instantly — reads the files directly |
+| VSCode extension | The folder VSCode has open (workspace root) | Instantly — reads the files directly |
+| Browser (claude.ai/code) | A **clone of a GitHub repo**, not your disk at all | Only after you `git push` — it clones whatever is on GitHub, not what's on your laptop |
+| claude.ai regular chat / Projects | N/A — no filesystem concept at all | Never — unrelated feature, ignore for this purpose |
+
+**The one rule that matters day to day:**
+
+> Terminal, desktop, and VSCode are all just windows onto the same folder on your hard drive — the second the scaffold exists there, all three see it, no extra steps. Browser is different: it only sees what's been pushed to GitHub. If you update docs locally and want browser to see it, you must `git push` first.
+
+**The other rule that matters:**
+
+> Always point every platform at the exact project folder (e.g. `karbotrage_v1/`), never a parent folder that merely contains it (e.g. `karbotrage/`). One level off and you get nothing — not a degraded version, nothing at all, with no warning.
+
+**Concretely, for a project like `karbotrage_v1/` that already has Foundry scaffolded and pushed to GitHub:**
+- Open terminal, `cd` into `karbotrage_v1/`, run `claude` → hooks fire immediately.
+- Open the desktop app, select the `karbotrage_v1/` folder → hooks fire immediately.
+- Open VSCode on the `karbotrage_v1/` folder, open the Claude Code panel → hooks fire immediately.
+- Go to claude.ai/code, select the `WarpedMind/karbotrage` GitHub repo → hooks fire, using whatever was last pushed.
+- You do **not** run `/foundry-init` again for any of these. It already happened, once, and the files it wrote are what every platform above is reading.
+
 ## What Foundry does NOT do (read this before you rely on it)
 
 - **It is not a security audit.** The secrets-guard hook catches realistic filename patterns (`.env`, `*.pem`, `config.yaml`, etc.) — it does not catch a secret hardcoded inside an otherwise-ordinary source file, a secret pasted into a file with an innocuous name, or anything already committed before Foundry was set up (there's a separate check for that last one, but it's a scan, not a guarantee).
 - **`qc-review` is not a substitute for a real security review** by someone qualified, especially for anything genuinely high-stakes (payments, health data, anything regulated). It's a fast, free, adversarial second opinion — a real and useful one — but treat a clean result as "nothing obvious was found," not as a certification.
 - **Governance/compliance sections are a starting structure, not legal advice.** When Foundry writes "not yet researched — get this reviewed before relying on it," that sentence is the actual point, not boilerplate. Foundry will never fabricate a specific regulatory framework it can't verify applies to your project, and you shouldn't either.
 - **The hooks load your docs automatically — but they don't write to them.** This is the most important limitation to understand. At the start of every session, CLAUDE.md/DECISIONS.md/SESSIONS.md are loaded into context automatically — the assistant sees them without you asking. But recording what happened in a session (updating SESSIONS.md, noting decisions, updating status) still requires the assistant to actually do the writing. The rule to do this is in CLAUDE.md (so the assistant sees it every session), but it's not mechanically enforced. **Make it a habit: before ending any session, say "wrap up and update the docs."** That one phrase reliably triggers the update. Closing the window without saying it means the session probably won't be recorded.
-- **Foundry only touches the single directory you run it from.** It will not cascade into subdirectories, and it checks first whether you're actually in a project root rather than a folder full of unrelated projects.
+- **Foundry only touches the single directory you run it from — and the hooks it installs only fire in that exact directory, forever, not above or below it.** This isn't just about avoiding cascade during scaffolding; it's an ongoing fact about how every future session works. Claude Code's own settings.json resolution (which is what makes the doc-loader and status hooks fire) is strictly exact-match on the current working directory — it does not walk upward into parent folders or downward into subdirectories. (CLAUDE.md itself is the one exception: Claude Code does walk upward looking for CLAUDE.md files, but the *hooks* — including the doc-loader that reads DECISIONS.md/SESSIONS.md alongside it — do not.) Concretely: if Foundry was scaffolded at `~/Projects/myapp/`, opening a session at `~/Projects/myapp/` gets full auto-loaded docs and hooks; opening a session one level up at `~/Projects/` (even though `myapp/` is right there inside it) gets none of it — not degraded, just absent, with no warning. This is a Claude Code platform limitation, not a Foundry bug, and it's the same everywhere Claude Code runs (CLI, VSCode extension, desktop app) — "directory" always means the actual working directory/workspace root, never a parent or child of it. It does not apply to Claude Projects in claude.ai's regular chat interface — that's a separate, filesystem-unrelated feature. **Always open new sessions inside the exact scaffolded project folder, not a folder above it.**
 - **Nothing here replaces your own judgment about what to commit, push, or deploy.** Foundry never commits automatically; it always asks first.
 
 ---

@@ -1,6 +1,27 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-06-30 (Session 20 — undocumented cwd-exact-only hook resolution)
+
+Not a fresh-eyes review round — surfaced by a real live incident in Karbot Rage. A new terminal session was opened at `~/Projects/karbotrage/` (the parent container folder), not `~/Projects/karbotrage/karbotrage_v1/` (the actual scaffolded project). `foundry-init`'s Step -1 location check correctly caught this and stopped. But the user's follow-up questions revealed a real, reasonable gap in mental model: an assumption that scaffolding a project would extend to sessions opened at a parent/sibling location, and separately, genuine confusion about what "directory"/cwd means across terminal vs. desktop app vs. VSCode vs. browser (claude.ai/code) vs. regular claude.ai chat (Claude Projects).
+
+### What was verified
+- Two rounds of research (via the `claude-code-guide` subagent, checking actual Claude Code docs and GitHub issue tracker, not assumed) confirmed: `.claude/settings.json` resolution is strictly exact-match on the current working directory, with no traversal upward into parent folders or downward into subdirectories. This is a documented open Claude Code limitation (see GitHub issue #12962, requesting parent-directory traversal for monorepos), not a Foundry bug.
+- CLAUDE.md is a partial exception — Claude Code walks *upward* looking for CLAUDE.md files, but the hooks (including the doc-loader that reads DECISIONS.md/SESSIONS.md alongside it) do not.
+- This exact-match behavior is uniform across terminal, VSCode extension, and desktop app — all read the local filesystem directly. Browser (claude.ai/code) is structurally different: it clones a GitHub repo into a cloud sandbox rather than reading local disk, so it only reflects what's been pushed, not what's on the local machine. Regular claude.ai chat / Claude Projects is unrelated entirely — no filesystem concept, no `.claude/settings.json`.
+- Confirmed against the real Karbot Rage repo: `karbotrage_v1/.claude/settings.json` is tracked, committed, and already pushed to `origin/main` (`WarpedMind/karbotrage`), so browser sessions pointed at that repo would see the scaffold correctly once selected.
+
+### What was fixed
+- **USER_GUIDE.md**: added a new "One project, many platforms" section — a per-platform table (terminal/desktop/VSCode read local disk instantly; browser reads a GitHub clone and only catches up after `git push`; regular claude.ai chat/Projects is unrelated) plus two bolded plain-English rules. Also expanded the existing "Foundry only touches the single directory" limitation bullet to state the exact-match/no-traversal mechanism explicitly, rather than only the cascade-prevention framing it had before.
+- **`skills/foundry-init/SKILL.md`**: added new Step -0.5 (scope acknowledgment), immediately after Step -1's location check passes. States the exact cwd about to be scaffolded and requires explicit user confirmation that this is the intended, exact-match-only scope before proceeding to Step 0. Distinct from Step -1: Step -1 catches an actually-wrong location (container folder, sibling repos); Step -0.5 catches a correct location paired with an incorrect mental model of scope (assuming it'll extend to parent/child folders, which it never will).
+- **README.md**: added a Roadmap entry documenting this fix under Session 20.
+
+### Test harness
+Not applicable — this is a documentation/orchestration-prose gap, not a mechanical command or regex pattern. Claude Code's traversal behavior itself is a platform constraint outside Foundry's control; nothing here is a `run_fixtures.sh`-testable case. Recorded explicitly rather than silently skipped, consistent with Session 18's prose-only findings.
+
+### What to do first next session
+- If a user opens `/foundry-init` for real and reaches the new Step -0.5, confirm the acknowledgment message reads clearly and doesn't feel like redundant friction after Step -1 already passed — this hasn't been exercised in a real invocation yet, only reasoned through.
+
 ## 2026-06-30 (Post-Session-19 follow-up — README discipline)
 
 Not a fresh-eyes review round — caught directly when the user asked "have you been updating the readme per push?" The honest answer was no: README.md's Roadmap hadn't been touched since Session 16 (3 rounds behind), and CONTRIBUTING.md's test-suite description still said "no broader test suite yet" despite `run_fixtures.sh` having grown to 5 suites since. CLAUDE.md/SESSIONS.md were genuinely kept current every round; README/CONTRIBUTING were not, and that asymmetry is itself the finding.

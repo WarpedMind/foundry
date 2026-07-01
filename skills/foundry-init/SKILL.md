@@ -26,6 +26,14 @@ If the check indicates a wrong location:
 
 This check is a strong heuristic, not an absolute technical guarantee — Claude Code itself has no built-in concept of "project boundary" beyond the current working directory. A monorepo with intentional git submodules could have a nonzero count and still be a legitimate single project; use the command's result as the primary signal, but still apply judgment for edge cases like that rather than blocking unconditionally on the number alone.
 
+## Step -0.5 — scope acknowledgment (after Step -1 passes, before Step 0)
+
+Once Step -1's check clears (or the user has confirmed/navigated to the right location), state plainly, before asking anything else:
+
+> "Just so this is clear before we start: Foundry will scaffold **only this exact directory** — `<print the actual cwd, e.g. via pwd>`. This is a Claude Code platform behavior, not a Foundry choice: the hooks Foundry installs (auto-loading your docs, the status check) only fire when a future session's working directory is this exact folder — not a parent folder above it, and not a subfolder below it. Opening a session one level up, even in a folder that visibly contains this project, will get none of it — silently, with no warning shown. Is `<cwd>` the right place, or would you like to point me at a different directory first?"
+
+Wait for explicit confirmation before proceeding to Step 0. This is a distinct check from Step -1: Step -1 catches the case where the *current* directory is clearly wrong (a container folder, multiple sibling repos). This step exists for the case where Step -1 passes cleanly (a legitimate single project root) but the user's mental model of "this will apply to the whole tree" is wrong — the exact confusion that arises when someone reasonably assumes scaffolding a parent directory would cover everything beneath it, which it will not.
+
 ## Step 0 — fast path check
 
 Ask first, before anything else — three options, not two:
