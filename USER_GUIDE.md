@@ -108,6 +108,10 @@ You don't run `/foundry-init` again. Two hooks do their job silently:
 
 If you ever see the offer and don't want it, just say **"skip Foundry for this project."** That's a real recognized phrase — it writes a dismissal flag and the offer goes away for good (until you explicitly run `/foundry-init` yourself later, which always works regardless of a prior dismissal).
 
+**A platform difference worth knowing: you may never actually *see* the "Foundry: Active" line, depending on which interface you're using.** Both hooks work by injecting text into the assistant's context (`additionalContext`, in Claude Code's own terms) — they don't "print" in the ordinary sense. The terminal/CLI happens to render that injected text as visible transcript output, so you'll typically see the status line appear there. The **VSCode extension's chat panel does not** — there's no banner, message bubble, or icon for it in that UI; the text is still injected into the model's context (so the assistant genuinely has it), it's just never shown to you visually. If you're in VSCode and don't see a status line, that is not a sign anything is broken.
+
+**The reliable way to confirm the hooks fired, in any interface, including VSCode:** don't look for a banner — ask the assistant something and see if it already knows project-specific details from CLAUDE.md/SESSIONS.md without you telling it (e.g. "what's the current status?" or just "hi"). If the very first response already reflects real, specific project state, the doc-loader hook worked — that's the actual evidence, not a visible confirmation message.
+
 ## Running one piece on its own
 
 `/foundry-init` is just an orchestrator — every piece it calls is also a standalone skill you can run by itself, on an existing project that only needs one thing:
