@@ -101,6 +101,16 @@ reported as a settled fact.* The specific shapes generalize:
    "the service is working."** Measure the thing itself.
 5. **When a conclusion is expensive to be wrong about, state what would
    falsify it** — then spend one more step trying to falsify it.
+6. **Suspect the pipeline when a result looks too BAD, exactly as hard as
+   when it looks too good.** The instinct to double-check a suspiciously
+   good number is well established; the same instinct rarely fires on a
+   suspiciously bad one, because a negative result feels like the
+   conservative answer and therefore the safe one. It isn't — a bug that
+   suppresses a real effect is just as wrong, and it ships silently because
+   nobody audits a disappointment. In one session an evaluation returned a
+   decisively negative verdict; the checks that made it trustworthy were
+   run *because* it was negative, and one of them found a data-handling bug
+   that had been silently discarding a fifth of the sample.
 
 **And when wrong, retract in the durable docs explicitly** — with the wrong
 claim, the correction, and the reason it was wrong — rather than quietly
@@ -108,6 +118,84 @@ editing it away. A silently deleted error teaches nobody, and future readers
 of the surrounding documents have no way to calibrate how much to trust
 them. Retractions are also the only durable signal that a document's
 confident-sounding claims were ever audited at all.
+
+### 1c. A validation that reports a RATE can hide an arbitrarily large omission — reconcile totals instead
+
+A verification step printed **"7,565 / 7,565 matched"** — a perfect score,
+printed in green, exactly the reassurance it was written to provide. It was
+also checking only 6,305 of the 7,566 records it had loaded. The missing
+fifth shared a structural property (they used a differently-named field for
+the same value), so they were not a random sample of the data: they were
+systematically the same region of every distribution.
+
+Nothing errored. No test failed. The bug was found only because two numbers
+printed a few lines apart did not add up.
+
+This generalizes to any check that summarizes rather than accounts — test
+harnesses that skip unparseable cases, migrations that report rows migrated
+without reporting rows seen, linters configured to ignore what they can't
+parse, ETL that silently drops malformed records. **A ratio answers "of what
+I looked at, how much was good?" It cannot answer "did I look at
+everything?"** — and the second question is where the expensive failures
+live, because a filter that removes data usually removes it for a *reason*,
+which means the survivors are biased rather than merely fewer.
+
+**The rules:**
+1. **Report a reconciliation, not a rate**: seen → eligible → checked →
+   passed, with the drops accounted for at each step.
+2. **Count every skip by reason**, never `continue` silently. A skip bucket
+   labelled `unhandled:<case>` is worth more than the pass rate next to it.
+3. **Make an unrecognized case a hard failure by default.** "Not handled" and
+   "handled and fine" must never render identically.
+4. **Distinguish absent data from unhandled logic.** The first is a fact
+   about the world and can be acceptable; the second is a bug. Naming them
+   the same thing is how one hides inside the other.
+
+### 1d. Before any statistical claim, establish what is actually independent — it is rarely the row
+
+An analysis had ~7,500 outcome records. It had **71 independent
+observations**. The records were nested (groups of six describing one
+underlying event) and further correlated across groups sharing a time
+period. Treating rows as independent would have shrunk every confidence
+interval by roughly a factor of nine — which is the difference between
+"no detectable effect" and a publishable result, produced entirely by the
+arithmetic rather than the data.
+
+This is not a niche statistics concern; it appears whenever data has any
+natural grouping, which is almost always: multiple metrics per deploy,
+multiple requests per user, multiple test cases per fixture, multiple
+files per commit. **The unit of independent information is whatever level
+the shared cause operates at.** Identify it explicitly *before* computing
+anything, resample at that level (block/cluster bootstrap), and state the
+number of independent units alongside the number of rows — the two being
+different by an order of magnitude is normal and should be visible.
+
+Related: **when a comparison is run across many groups, say so and state the
+multiplicity threshold in the same output.** Eighteen comparisons at p<0.05
+produces roughly one spurious winner by construction; printing the per-group
+table without the corrected threshold beside it invites exactly that
+misreading, including by the person who produced it.
+
+### 1e. When choosing between approaches, weight how cheaply each can be proven WRONG
+
+Two candidate directions were available. One could be evaluated offline
+against historical data, with no infrastructure built and nothing at risk.
+The other could only be evaluated by first building its entire execution
+layer and then operating it. Both were plausible; the offline-testable one
+was sequenced first *specifically because it could fail cheaply*.
+
+It did fail — decisively — and the total cost of learning that was one
+session, against a substantial subsystem that would otherwise have been
+built on an unverified premise.
+
+**The principle: falsifiability is a scheduling input, not just an
+epistemics one.** When two approaches have comparable expected value, the
+one whose core assumption can be tested before the investment is made is
+strictly better sequenced first, even if it looks less promising. The
+corollary matters as much — **a negative result from that step is a
+successful outcome, not a wasted session**, and should be written up with
+the same care as a positive one. Teams that treat "we proved this doesn't
+work" as failure quietly select for approaches that can't be checked.
 
 ### 2. Any code path touching real, shared infrastructure needs an explicit safety argument
 
@@ -446,6 +534,54 @@ enabling mid-task unblocking*. If that holds, it argues for using it during
 a task and still handing off cleanly between tasks — not for maximizing
 turn length.
 
+**Second observational data point (2026-08-02, different session shape).**
+Again not the controlled experiment — no control arm, no token
+instrumentation — but it is a useful contrast because the shape was almost
+the opposite of the first. Where the first session used four question
+prompts across a broad, exploratory scope, this one used **two**: a batched
+pair at the very start (an environment blocker plus the time budget), and a
+close-out at the end. Everything between was a single uninterrupted build:
+data-source exploration, a from-scratch analysis package, ~20 minutes of
+bulk data retrieval, three test files, and a documentation pass.
+
+What that shape appears to buy, and what it costs:
+
+- **The opening batch was worth more than its size suggests.** One prompt
+  resolved a tool outage *and* set the scope, before any work was committed
+  to. Asking the time budget after starting a large build would have meant
+  either abandoning work or overrunning — the answer changed the first
+  decision made, which is the only place that question has leverage
+  (entry 9c-iv).
+- **Long compute is where uninterrupted turns pay.** A ~20-minute data pull
+  ran in the background while tests were written against the same modules.
+  A turn boundary anywhere in that window would have either wasted the wait
+  or lost the in-flight state. The general form: **the value of staying in
+  one turn scales with how much irreproducible working state exists at that
+  moment**, and it is highest during long-running operations.
+- **Few questions is not the same as few decisions.** A dozen decisions were
+  made unilaterally under a previously-agreed autonomy list (entry 9c-iii) —
+  test design, doc placement, dependency choices, commit granularity.
+  Without that list, each would have been a candidate question and the
+  session would have looked like the first one. **The autonomy list, not the
+  batching, is what reduced question count.** This is worth separating,
+  because the two get credited together.
+- **Cost, same as before: the turn ran very long**, and context
+  summarization is a real risk in a session that reads large documents and
+  then produces large ones. Mitigated here by writing findings into durable
+  files (a report artifact, a package README) *as they were found* rather
+  than holding them in context to write up at the end. **That is probably
+  the generalizable mitigation**: in a long single turn, treat the durable
+  document as working memory, not as the final deliverable — it survives
+  summarization and the context does not.
+
+**Refined tentative read**: the three mechanisms are separable and only one
+of them is about round-trips. Batching saves round-trips; the *autonomy
+list* removes questions entirely; and staying in one turn preserves state.
+The third is the one with a clear scaling rule (use it while irreproducible
+state is high), and the first two are cheap enough to adopt unconditionally.
+Still no measured token claim — and per the entry below, none should be
+invented.
+
 ### 9c. Ask the decision question *after* the investigation that informs it
 
 Sequencing failure worth naming, from the same session. The assistant put a
@@ -605,6 +741,18 @@ anything changes between writing it and the handoff actually happening.
   for that, here's my qualitative read, and here's what real measurement
   would take" — the fabricated version looks like data and gets treated
   like data by whoever reads it later.
+- **Never pipe a long-running background process into a filter like `tail`.**
+  Most runtimes block-buffer stdout when it isn't a terminal, so the output
+  file stays empty until the process exits — meaning no progress visibility,
+  and a run interrupted at minute 19 of 20 leaves nothing at all. Redirect to
+  a file instead, and have long jobs additionally checkpoint their raw
+  intermediate output to disk so the expensive fetch/compute half can be
+  reused when the cheap analysis half needs another iteration.
+- **Never key persistent state on a value that isn't stable across
+  processes.** Some runtimes randomize string hashing per process for
+  security (Python's `hash()` is the common example), so a cache filename
+  built from it misses on every restart — silently degrading to "no cache"
+  rather than failing. Use an explicit content hash from a hashing library.
 - **Before committing to a design's scope/risk when asked "is this safe,
   how big is it" — actually sample a few real, representative examples of
   the code being changed, not just describe the design in the abstract.**
