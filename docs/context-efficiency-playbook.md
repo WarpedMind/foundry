@@ -490,6 +490,42 @@ Two supporting details:
   tool already supplies one; adding it is noise, and telling the person to
   use a feature they already have is worse.
 
+### 9c-iii. Agree an explicit autonomy list — it removes questions without removing control
+
+The complement to entry 9. Batching questions makes each round-trip cheaper;
+an autonomy list removes round-trips entirely, and costs the person nothing
+they actually wanted.
+
+Put two short lists in the project's handoff document:
+
+**Decide without asking** — typically: adding or updating tests when
+behaviour legitimately changed; documentation structure and wording; commit
+granularity and messages; repo hygiene (ignore rules, untracking artifacts,
+cleaning up temp files the assistant created); choices among equivalent
+implementations; refactors confined to code already being changed.
+
+**Always ask** — typically: direction or scope calls with a real trade-off;
+anything that spends money, sends something outward, or goes live; deleting
+or gutting existing work; production changes beyond a routine verified
+deploy; and any case where two readings of the request produce materially
+different work — asked *before* the work, not after.
+
+Two conditions that make the delegated half safe:
+- **Delegated actions must still be reported**, in the commit message and
+  the session log. Autonomy is about not *pausing*, not about not *telling*.
+- **Test changes specifically must state why the test changed.** A silently
+  rewritten failing test is indistinguishable from fudging a result — the
+  reason is what separates "the behaviour intentionally changed" from
+  "I made the red go away."
+
+### 9c-iv. Ask for the time budget once, at the start
+
+"Quick one" versus "I have a few hours" changes scoping from the first move:
+whether to open a large build at all, or to take a bounded piece and hand
+off cleanly. It is one question, asked once, folded into the session's first
+structured prompt — and it prevents the much more expensive failure of
+starting something substantial that has to be abandoned half-finished.
+
 ### 9d. Front-load environment constraints — they are cheap to state and expensive to discover
 
 Same session: shell calls intermittently failed due to a permission-mode
