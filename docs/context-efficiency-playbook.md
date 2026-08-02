@@ -62,31 +62,34 @@ someone's watching.
 
 ### 1b. The dominant failure mode is a confident conclusion from an incomplete search
 
-Sharpest lesson from Karbot Rage Session 30, where the assistant reached
-**four** wrong conclusions in a single session. Every one was independently
-plausible, none was careless in the moment, and all four shared one shape:
-*a search that stopped early, reported as a settled fact.*
+Observed acutely in one session where an assistant reached **four** wrong
+conclusions. Every one was independently plausible, none was careless in the
+moment, and all four shared one shape: *a search that stopped early,
+reported as a settled fact.* The specific shapes generalize:
 
-- **"Kalshi's maker fee is 25% of taker."** Three independent third-party
-  sources agreed with each other **and** with a docstring inside the repo.
-  All four quoted the formula's coefficient; none mentioned that the
-  multiplier it multiplies defaults to **zero** for makers and **one** for
-  takers. The real answer — maker fees are $0 on most markets — reversed
-  the conclusion and materially changed a strategy recommendation.
-- **"VPS access is lost."** Derived from listing `~/.ssh/` and finding no
-  working key. The key was in `~/kalshi-keys/`.
-- **"Book-reset recovery has regressed to 0% completion."** Derived from
-  grepping two log names without reading the code that emits them. One
-  fired *after* a successful apply (so it counted successes, not attempts);
-  the other was emitted at DEBUG, filtered out of production months
-  earlier, and could never have appeared. The mechanism was healthy.
-- A build-order recommendation that ignored that the "prerequisites" did
-  not actually block the thing they were sequenced ahead of.
+- **Multiple secondary sources agreeing, all sharing one omission.** Three
+  independent third-party references described a vendor's pricing formula,
+  and so did a docstring inside the codebase. All four quoted the formula's
+  coefficient; none mentioned that the multiplier it applies to defaults to
+  zero in one case and one in the other. The primary document reversed the
+  conclusion — and the conclusion was load-bearing for a strategy decision.
+- **An absence found in one location, reported as absence everywhere.**
+  A credential wasn't in its conventional directory, so the capability was
+  declared lost. It was in a non-standard path the assistant never asked
+  about.
+- **Names trusted instead of the code behind them.** Two log lines were
+  compared to conclude a subsystem had failed. Reading the emitting code
+  showed one fired *after* the operation succeeded (so it counted successes,
+  not attempts) and the other was emitted at a level filtered out of
+  production entirely, so it could never appear regardless of health. The
+  subsystem was fine.
+- **A sequencing recommendation that never checked its own premise** —
+  "prerequisites" ordered ahead of work they did not actually block.
 
 **Rules that would have caught all four:**
 1. **Agreement among secondary sources is not verification.** N sources
    derived from the same upstream summary fail identically. Get the primary
-   document — the vendor's own schedule, the RFC, the emitting code.
+   document — the vendor's own specification, the RFC, the emitting code.
 2. **A negative result needs a wider search than a positive one.** "I found
    X" is self-validating; "X doesn't exist" is a claim about everywhere you
    didn't look. Before writing one down, ask what would have to be true for
@@ -94,14 +97,17 @@ plausible, none was careless in the moment, and all four shared one shape:
 3. **Never treat a log name, a metric name, or a comment as evidence of what
    it measures.** Read the code that emits it, including its level and its
    position relative to the operation it claims to describe.
-4. **"Deployed" is not "confirmed live"; "the service is active" is not
+4. **"Deployed" is not "confirmed live"; "the service is running" is not
    "the service is working."** Measure the thing itself.
+5. **When a conclusion is expensive to be wrong about, state what would
+   falsify it** — then spend one more step trying to falsify it.
 
 **And when wrong, retract in the durable docs explicitly** — with the wrong
 claim, the correction, and the reason it was wrong — rather than quietly
-editing it away. Session 30 wrote three retractions on purpose: a silently
-deleted error teaches nobody, and future readers of the surrounding
-documents have no way to calibrate how much to trust them.
+editing it away. A silently deleted error teaches nobody, and future readers
+of the surrounding documents have no way to calibrate how much to trust
+them. Retractions are also the only durable signal that a document's
+confident-sounding claims were ever audited at all.
 
 ### 2. Any code path touching real, shared infrastructure needs an explicit safety argument
 
@@ -170,11 +176,11 @@ N+3 the accumulated operating knowledge — environment quirks, working
 preferences, standing rules — has quietly evaporated, while the
 project-specific content survives because it's obviously relevant.
 
-Fix, proven across the Karbot Rage chain: **the bridge document instructs
-its own successor to carry the same closing instruction forward.** The last
-line of every bridge is, in effect, "write the next bridge, and make sure it
-repeats this instruction." Cheap, and it makes the chain self-sustaining
-rather than dependent on each session remembering.
+Fix, proven across a long multi-session chain: **the bridge document
+instructs its own successor to carry the same closing instruction forward.**
+The last line of every bridge is, in effect, "write the next bridge, and
+make sure it repeats this instruction." Cheap, and it makes the chain
+self-sustaining rather than dependent on each session remembering.
 
 Extend that to a standing **carry-forward block**, kept in every bridge and
 added to rather than rewritten:
@@ -184,10 +190,11 @@ added to rather than rewritten:
 - **Working preferences** (batch questions rather than ending turns; where
   fetched reference documents get stored; who decides what).
 - **The one or two disciplines that actually produced results** on this
-  project, stated as instructions rather than history. On Karbot Rage that
-  is "verify one level deeper than feels necessary, especially on a
-  negative" (see 1b) — which is a *behavioural* instruction and therefore
-  exactly the kind of thing that evaporates if not restated each time.
+  project, stated as instructions rather than history — e.g. "verify one
+  level deeper than feels necessary, especially on a negative" (see 1b).
+  These are *behavioural* instructions and therefore exactly the kind of
+  thing that evaporates if not restated each time, because unlike project
+  facts they never look obviously relevant to the next task.
 
 The distinction that matters: **project state belongs in the durable docs**
 (CLAUDE.md / DECISIONS.md and equivalents) and should only be *pointed at*
@@ -389,9 +396,9 @@ Not yet resolved; recorded as a planned experiment, not a settled result.
 Entry 9 above argues batching decisions into `AskUserQuestion`-style
 structured prompts is cheaper than serial open-ended back-and-forth — but
 that claim has only ever been asserted qualitatively, never measured. A
-session heavy on this pattern (2026-07-31, HotCoutour) also had real
-confounding overhead (tool outages, a self-inflicted regression) that made
-an honest before/after read impossible from that session alone.
+session heavy on this pattern (2026-07-31) also had real confounding
+overhead (tool outages, a self-inflicted regression) that made an honest
+before/after read impossible from that session alone.
 
 **If tried**: run two comparable sessions on similar-sized tasks, one using
 structured batched questions at decision points, one using plain
@@ -400,29 +407,31 @@ token usage. Report the actual numbers here once done — don't state a
 percentage or "X% faster" claim without real instrumentation behind it (see
 the "never fabricate a quantitative claim" entry below).
 
-**First observational data point (2026-08-02, Karbot Rage Session 30).** Not
-the controlled experiment above — one session, no control arm, no token
-instrumentation available to the assistant — so this is qualitative
-structural evidence only, explicitly not a measured efficiency claim.
+**First observational data point (2026-08-02).** Not the controlled
+experiment above — one session, no control arm, no token instrumentation
+available to the assistant — so this is qualitative structural evidence
+only, explicitly not a measured efficiency claim.
 
-The person's stated approach was: stay in one turn wherever possible, use
-`AskUserQuestion` instead of ending the turn, and hand off tasks the
-assistant can't do (fetching a rate-limited PDF, flipping a permission mode)
-through the same mechanism. Four such prompts covered: a strategy-direction
-fork, a build-order/model/continuation triple, a deploy/continue/hygiene
-triple, and a close-out. What that structurally bought, observably:
+The person's stated approach was: stay in one turn wherever possible, use a
+structured question prompt instead of ending the turn, and hand off tasks
+the assistant *can't* do (retrieving a rate-limited document, changing a
+permission mode) through that same mechanism. Four such prompts covered a
+direction fork, a sequencing/model/continuation triple, a
+deploy/continue/hygiene triple, and a close-out. What that structurally
+bought, observably:
 
 - **Work continued across every decision.** The assistant never had to
   re-establish what it had read, verified, or half-finished, because the
-  turn never ended. In a session that did doc work, live API scans, VPS
-  administration and a code change, that state was substantial.
-- **Blocked work was unblocked in-line.** A rate-limited PDF and a broken
-  permission mode were both resolved via a question mid-turn rather than by
-  stopping. The PDF specifically overturned a wrong conclusion the assistant
-  had already committed — a serial workflow would have shipped that error to
-  the next session instead.
+  turn never ended. In a session spanning documentation, live API queries,
+  server administration and a code change, that accumulated state was
+  substantial.
+- **Blocked work was unblocked in-line.** A rate-limited document fetch and
+  a malfunctioning permission mode were both resolved mid-turn rather than
+  by stopping. The document specifically **overturned a wrong conclusion the
+  assistant had already committed** — a stop-and-restart workflow would have
+  shipped that error into the next session to be built on.
 - **Genuinely independent questions batched cleanly**; questions with a
-  dependency did not (see 9c).
+  hidden dependency did not (see 9c).
 
 Honest costs, same session:
 - **One turn ran very long**, which pushes toward context summarization and
@@ -431,13 +440,19 @@ Honest costs, same session:
 - **One batched question was asked too early and had to be effectively
   re-asked** when later investigation changed its premise — see 9c.
 
+**Tentative read pending real instrumentation**: the pattern's value appears
+to come less from saving round-trips than from *preserving working state and
+enabling mid-task unblocking*. If that holds, it argues for using it during
+a task and still handing off cleanly between tasks — not for maximizing
+turn length.
+
 ### 9c. Ask the decision question *after* the investigation that informs it
 
 Sequencing failure worth naming, from the same session. The assistant put a
-strategy-direction fork (market-making vs. model-divergence) to the person
-early, with a recommendation resting partly on a fee-economics argument. An
-hour later, the primary-source fee schedule showed that argument was built
-on a misread, and the fork had to be reopened with a corrected premise.
+significant direction fork to the person early, with a recommendation
+resting partly on a quantitative argument. An hour later, the primary source
+for that argument showed it was built on a misread, and the fork had to be
+reopened with a corrected premise.
 
 The person had already answered. Their answer was made on information that
 turned out to be wrong, which is worse than not having asked yet — it costs
@@ -454,14 +469,36 @@ determines whether another is even relevant.** A dependent question in a
 batch produces an answer to a hypothetical, and the person can't see the
 dependency from the options alone.
 
+### 9c-ii. If the person works in long single turns, close every turn with a question — not a summary
+
+Small mechanical rule with an outsized cost when missed. Where the working
+agreement is "stay in one turn, ask rather than stop," the assistant must
+make a structured question the **final action of every turn**, including
+turns where the work is plainly finished.
+
+Ending with a summary instead — however complete — forces the person to
+spend a full round-trip just to say "one more thing," which is precisely the
+cost the working agreement exists to avoid. Observed failing twice in one
+session, both times *because* the work looked done: a tidy closing summary
+feels like a natural terminator, so the rule gets dropped exactly when it is
+most needed.
+
+Two supporting details:
+- **State it as a hard rule in the handoff document, not a preference** —
+  soft phrasing ("prefer to ask") loses to the pull of a natural ending.
+- **Don't manufacture an "Other"/"something else" option** if the question
+  tool already supplies one; adding it is noise, and telling the person to
+  use a feature they already have is worse.
+
 ### 9d. Front-load environment constraints — they are cheap to state and expensive to discover
 
-Same session: bash calls intermittently failed with a permission-classifier
-error, and an SSH key turned out to live outside `~/.ssh/`. Neither was
-knowable from the repo. The assistant burned repeated retries on the first
-and — worse — drew a confident wrong conclusion from the second ("VPS access
-lost"), wrote it into three documents, and committed it before the person
-mentioned in passing that they'd just logged in normally.
+Same session: shell calls intermittently failed due to a permission-mode
+quirk in the harness, and an SSH key turned out to live outside the
+conventional directory. Neither was knowable from the repository. The
+assistant burned repeated retries on the first and — worse — drew a
+confident wrong conclusion from the second ("remote access lost"), wrote it
+into three documents, and committed it, before the person mentioned in
+passing that they had just logged in normally.
 
 Both facts would have fit in two lines of the initial prompt.
 
