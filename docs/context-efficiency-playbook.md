@@ -613,7 +613,7 @@ What that shape appears to buy, and what it costs:
   to. Asking the time budget after starting a large build would have meant
   either abandoning work or overrunning — the answer changed the first
   decision made, which is the only place that question has leverage
-  (entry 9c-iv).
+  (entry 9c-v).
 - **Long compute is where uninterrupted turns pay.** A ~20-minute data pull
   ran in the background while tests were written against the same modules.
   A turn boundary anywhere in that window would have either wasted the wait
@@ -830,6 +830,16 @@ label at all.
   to want. That converts the label from a judgment into an echo, which is
   both useless and hard to detect from the transcript.
 
+**This entry is canonical.** A compressed version of the first rule above
+lives in Foundry's own `templates/CLAUDE.md.template` (the "recommendation
+must be one of the options" clause of its closing-question Rule, added
+2026-08-11), so it reaches every project Foundry scaffolds, not just this
+one's own working practice. If this entry's rule changes, update the
+template clause to match — the template does not restate the reasoning or
+the "(Recommended)" label discipline above, only the one-line rule, so it
+can drift out of sync silently if this entry changes and the template isn't
+revisited.
+
 ### 9c-iii. Agree an explicit autonomy list — it removes questions without removing control
 
 The complement to entry 9. Batching questions makes each round-trip cheaper;
@@ -858,7 +868,7 @@ Two conditions that make the delegated half safe:
   reason is what separates "the behaviour intentionally changed" from
   "I made the red go away."
 
-### 9c-iv. Ask for the time budget once, at the start
+### 9c-v. Ask for the time budget once, at the start
 
 "Quick one" versus "I have a few hours" changes scoping from the first move:
 whether to open a large build at all, or to take a bounded piece and hand
