@@ -1,6 +1,24 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-08-10 (External-project session — playbook entries from live use)
+
+### What was built
+- `docs/context-efficiency-playbook.md`: a third observational data point under entry 9b; a new entry 9c-iv on recommendations omitted from option lists and on the "(Recommended)" label as a promise; and three quality entries — 1f (negative tests must assert the specific failure), 1g (layered permission systems fail in the direction that looks like success), 1h (partially-overlapping verification commands create a blind spot at the seam).
+- No skill, template or hook changes. Playbook and decision log only.
+
+### What was decided
+- All entries written project-agnostically by deliberate instruction from the user — the source project's names, vendors and products appear nowhere, on the grounds that a lesson tied to specifics carries no value into another project's scope. Full rationale in DECISIONS.md.
+
+### Verification
+- Additions grepped for project, vendor and product names before committing: zero matches across the added lines.
+- Entry 9b's open question (a controlled before/after measurement of structured decision points) remains **unresolved** — this is a third qualitative data point with no control arm and no token instrumentation, not the experiment that entry asks for. No quantitative claim was made.
+- The three quality entries each describe a failure that actually occurred and was caught by running something, not by review.
+
+### What to do first next session
+- Entry 9b's controlled experiment is still the outstanding item, now with three qualitative data points arguing the benefit is state preservation rather than round-trip savings.
+- Consider whether 9c-iv's "recommendation must be an option" rule belongs in the CLAUDE.md template's standing Rules, not only in the playbook — it governs assistant behavior in every project, which is the bar the other template rules meet.
+
 ## 2026-06-30 (Session 20 — undocumented cwd-exact-only hook resolution)
 
 Not a fresh-eyes review round — surfaced by a real live incident in Karbot Rage. A new terminal session was opened at `~/Projects/karbotrage/` (the parent container folder), not `~/Projects/karbotrage/karbotrage_v1/` (the actual scaffolded project). `foundry-init`'s Step -1 location check correctly caught this and stopped. But the user's follow-up questions revealed a real, reasonable gap in mental model: an assumption that scaffolding a project would extend to sessions opened at a parent/sibling location, and separately, genuine confusion about what "directory"/cwd means across terminal vs. desktop app vs. VSCode vs. browser (claude.ai/code) vs. regular claude.ai chat (Claude Projects).

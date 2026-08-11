@@ -197,6 +197,68 @@ successful outcome, not a wasted session**, and should be written up with
 the same care as a positive one. Teams that treat "we proved this doesn't
 work" as failure quietly select for approaches that can't be checked.
 
+### 1f. A negative test must assert the specific failure, or it decays into a tautology
+
+A test whose assertion is "this should throw" passes on *any* error,
+including one that has nothing to do with what is being tested. It then keeps
+passing after the protection it was written to verify has been removed.
+
+Observed concretely: tests asserting that an unauthorized write is rejected
+passed on the first run — but on the wrong error. The permission layer they
+were meant to exercise was not yet reachable, and a different, unrelated
+failure was satisfying the assertion. Had that been accepted, the suite would
+have reported the protection working while it did not exist.
+
+**Rule**: every negative test asserts the *mechanism*, not merely the
+outcome — match the specific error, code, or message. When more than one
+layer can reject the same operation, name in the test which layer is expected
+to do it. That way, if a future change moves the rejection from one layer to
+another, the test fails and forces the question rather than silently
+accepting a weaker guarantee.
+
+Corollary, and the reason this is worth its own entry: a green suite is
+evidence about the assertions you wrote, not about the property you had in
+mind. The failure is invisible precisely because everything looks fine.
+
+### 1g. Layered permission systems fail in the direction that looks like success
+
+When access control is assembled from several layers that must all agree
+(role grants plus row policies, network rules plus application checks, IAM
+plus resource policy), reviewing one layer gives no signal about the others —
+and the common misconfiguration denies everything, which reads as "secure"
+rather than "broken."
+
+Observed: row-level policies were written, reviewed and looked correct, but
+the underlying table privileges were never granted. Every query failed. The
+policy layer was flawless in isolation and the system was entirely
+non-functional. Nothing in reading the policies could have revealed it,
+because the missing piece was in a different layer that the policies never
+reference.
+
+**Rules:**
+- Prove a layered permission system by **executing both directions** — an
+  authorized operation must succeed, not merely an unauthorized one fail. A
+  test suite containing only denial cases passes perfectly on a system that
+  denies everything.
+- When adding a new resource to such a system, treat "which layers must be
+  updated" as a checklist item recorded next to the resource definition. The
+  second layer is forgotten precisely because the first one is the one you
+  were thinking about.
+
+### 1h. Partially-overlapping verification commands create a blind spot at the seam
+
+Two checks that mostly cover the same ground breed the habit of running only
+the faster one. The uncovered remainder is then never checked, and the habit
+feels safe because the fast check keeps passing.
+
+Concretely: a test runner that executes code without type-checking it, beside
+a build that does both. Running tests after every change felt like
+verification; a type error sat undetected until the build ran much later.
+
+**Rule**: when two verification commands overlap partially, either run both
+as one command, or write down explicitly what each does *not* cover. "Tests
+pass" is not "the build passes" unless you have established that it is.
+
 ### 2. Any code path touching real, shared infrastructure needs an explicit safety argument
 
 Anything — test, script, or application route — that writes to something
@@ -582,6 +644,46 @@ state is high), and the first two are cheap enough to adopt unconditionally.
 Still no measured token claim — and per the entry below, none should be
 invented.
 
+**Third observational data point (2026-08-10, greenfield project start).**
+Again no control arm and no token instrumentation, so still not the
+controlled experiment. Useful because the shape was different again: a
+single session that ran from open-ended strategy research, through a
+direction reversal, into scaffolding, schema design, live-database work and
+a deploy-path proof — roughly ten structured question prompts across it.
+
+Consistent with the two prior points:
+
+- **Preserved state was the dominant benefit, not saved round-trips.**
+  Findings from the research phase (competitor pricing, an exam's retake
+  gating, a peer-dependency range) fed decisions many steps later —
+  including one that became a database column. A turn boundary anywhere in
+  that chain would have meant re-deriving the finding or, more likely,
+  silently not applying it.
+- **The durable-document mitigation held.** Writing conclusions into
+  versioned project docs *as they were reached*, rather than holding them to
+  write up at the end, meant the long turn's context was never the only copy.
+
+New, and the most useful thing this session produced:
+
+- **Structured options can quietly defeat a prose recommendation.** The
+  assistant recommended, three separate times, that the person pause building
+  and go do external validation. Each time, that recommendation lived in
+  prose while the question tool offered several concrete *build* options. The
+  build continued all three times. The recommendation was never argued
+  against — it simply never appeared as a thing to click.
+
+  This is a real failure mode of the pattern, not of the person. Options
+  presented as choices are far more available than a recommendation presented
+  as text, and a recommendation that isn't an option effectively isn't on the
+  table. See 9c-iv.
+- **Question count per prompt was not the bottleneck.** The assistant
+  self-criticised mid-session for asking three to four questions per prompt
+  and proposed narrowing to one or two. Reviewing the actual answers, the
+  person had engaged substantively with every sub-question, including the
+  fourth. **Don't reduce question count on the assistant's aesthetic
+  discomfort alone** — check whether the extra questions were actually
+  answered before concluding they were noise.
+
 ### 9c. Ask the decision question *after* the investigation that informs it
 
 Sequencing failure worth naming, from the same session. The assistant put a
@@ -625,6 +727,66 @@ Two supporting details:
 - **Don't manufacture an "Other"/"something else" option** if the question
   tool already supplies one; adding it is noise, and telling the person to
   use a feature they already have is worse.
+
+### 9c-iv. If a recommendation isn't one of the options, it isn't really on the table
+
+The counterpart to entry 9's warning about over-using structured questions.
+That entry covers asking too often; this one covers asking in a way that
+silently discards the assistant's own advice.
+
+Observed across one long session: an assistant recommended the same course
+of action three times, in prose, while the accompanying question prompt
+offered several concrete alternatives — all of them variations on continuing
+the current work. The recommendation was chosen zero times. It was never
+disagreed with; it just never appeared as something to select, and selecting
+is much cheaper than composing a reply that overrides the visible choices.
+
+The asymmetry is structural. A list of options is a menu, and a menu defines
+what the meal can be. Prose surrounding the menu reads as commentary.
+
+**Rules:**
+- If the assistant is making a real recommendation, it must be **the first
+  option and labeled as recommended** — not prose above the question. If it
+  cannot be phrased as an option, that is a signal the recommendation is too
+  vague to act on, which is worth noticing in itself.
+- **If the same recommendation goes untaken twice, stop offering the
+  alternatives.** Ask about it directly and alone, with the alternatives
+  removed. Repeating advice into a menu that competes with it is not
+  persistence, it is noise.
+- Distinguish "the person considered this and declined" from "this was never
+  really presented." Only the first is a decision. The second looks identical
+  in a transcript and is the assistant's fault, not the person's.
+
+This matters most when the recommendation is to **stop or change track**
+rather than to continue — those are exactly the recommendations that never
+have a natural home in a list of next steps, and exactly the ones where
+being ignored is most expensive.
+
+**The "(Recommended)" label is a promise, and it is easy to spend it
+carelessly.** Raised directly by the person on the receiving end of it: they
+had started re-asking "is that *actually* your recommendation?" because they
+suspected the label was being attached by habit — as formatting, or as
+deference to whatever seemed most agreeable — rather than as a real judgment.
+
+That suspicion is corrosive in a specific way. Once the label is not
+trusted, every question costs an extra round-trip to re-confirm the thing the
+label existed to communicate, and the mechanism becomes worse than having no
+label at all.
+
+**Rules:**
+- Attach "(Recommended)" only where you would defend that choice if
+  challenged, and where you would give the same answer if the person had
+  asked in plain prose with no options in front of them.
+- **A question with no genuine best answer should have no recommended
+  option.** Options that are matters of taste, or where the assistant truly
+  has no basis to prefer one, must be presented flat. Marking one anyway to
+  seem helpful is the exact behavior that destroys the signal.
+- Be able to state the reason in one clause. If the justification cannot be
+  compressed to a clause, it belongs in the prose above the question — and if
+  no justification exists at all, remove the label.
+- Never let the recommended option drift toward whatever the person appeared
+  to want. That converts the label from a judgment into an echo, which is
+  both useless and hard to detect from the transcript.
 
 ### 9c-iii. Agree an explicit autonomy list — it removes questions without removing control
 

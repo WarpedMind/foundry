@@ -1,6 +1,23 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-08-10 — Structured decision points: two failure modes found in live use
+
+### A recommendation left out of the options list is not really on the table
+- Observed across one long external-project session: the assistant recommended the same course correction three times, in prose, while every option offered in the accompanying question prompt was a variation on continuing the current work. It was selected zero times and never argued against. Added as playbook entry 9c-iv.
+- **Why:** a list of options functions as a menu and defines what the outcome can be; prose around it reads as commentary. Selecting is far cheaper than composing a reply that overrides the visible choices, so an unlisted recommendation is effectively absent. This bites hardest when the recommendation is to *stop or change track*, which never has a natural home in a list of next steps.
+- **How to apply:** a genuine recommendation must be the first option and labeled as such, not prose above the question. If the same recommendation goes untaken twice, drop the alternatives and ask about it alone. Distinguish "considered and declined" from "never actually presented" — the two look identical in a transcript and only the first is a decision.
+
+### The "(Recommended)" label is a promise, and spending it carelessly destroys the mechanism
+- Raised directly by the user: they had begun re-asking "is that actually your recommendation?" because they suspected the label was attached by habit or deference rather than judgment. Added to playbook entry 9c-iv.
+- **Why:** once the label is not trusted, every question costs an extra round-trip to re-confirm the exact thing the label existed to communicate — making it worse than no label at all. The specific corrupting pattern is letting the recommended option drift toward whatever the person appeared to want, which converts a judgment into an echo and is nearly undetectable from a transcript.
+- **How to apply:** label an option recommended only when you would defend it if challenged and would give the same answer with no options in front of you. A question with no genuine best answer gets no recommended option — presenting taste-based choices flat is correct, not unhelpful. If the reason cannot be stated in one clause, either move it to prose or drop the label.
+
+### Self-directed process criticism needs the same evidence standard as any other claim
+- Same session: the assistant judged mid-session that it was asking too many questions per prompt (three to four) and proposed narrowing to one or two. Checking the actual answers showed the person had engaged substantively with every sub-question, including the fourth. The advice was wrong and was recorded as wrong rather than acted on.
+- **Why:** an assistant's discomfort with the *shape* of its own output is not evidence about that output's usefulness, and it reads as thoughtful self-correction, which makes it unusually likely to be adopted unchecked. Foundry's verify-before-trust rule applies to claims about one's own process, not only to external ones.
+- **How to apply:** before changing a working practice on self-criticism alone, look for the evidence — here, whether the extra questions were actually answered. Applies to any "I should do less of X" instinct.
+
 ## 2026-06-28 — USER_GUIDE.md needed a why/benefits layer, not just steps
 
 ### A pure step-by-step walkthrough assumes too much prior knowledge for a public launch
