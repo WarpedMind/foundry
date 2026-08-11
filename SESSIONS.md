@@ -16,7 +16,7 @@
 - The three quality entries each describe a failure that actually occurred and was caught by running something, not by review.
 
 ### What to do first next session
-- Entry 9b's controlled experiment is still the outstanding item, now with three qualitative data points arguing the benefit is state preservation rather than round-trip savings.
+- Entry 9b's measurement is now actionable rather than blocked: added 9b-i, which replaces the impossible two-arm experiment (the same task cannot be run twice — the second arm measures order, not method) with a four-field per-session log. The key field is re-establishment count, not tokens, because it measures the mechanism the hypothesis names and is not confounded by task difficulty. Start logging it.
 - Consider whether 9c-iv's "recommendation must be an option" rule belongs in the CLAUDE.md template's standing Rules, not only in the playbook — it governs assistant behavior in every project, which is the bar the other template rules meet.
 
 ## 2026-06-30 (Session 20 — undocumented cwd-exact-only hook resolution)

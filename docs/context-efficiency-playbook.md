@@ -684,6 +684,48 @@ New, and the most useful thing this session produced:
   discomfort alone** — check whether the extra questions were actually
   answered before concluding they were noise.
 
+### 9b-i. How to actually measure it — log four fields, don't design an experiment
+
+Entry 9b has accumulated three qualitative data points and zero measurements
+since it was opened. The reason is structural, and worth naming so a fourth
+observation doesn't get added in place of a number: **the same task cannot be
+run twice.** Whichever arm runs second benefits from everything learned in
+the first, so a naive A/B on one task measures order, not method.
+
+The way around it is to stop treating this as an experiment to construct and
+start treating it as one already running. Anyone working across several
+projects generates comparable task *shapes* continuously — scaffold a
+project, add a feature, chase a bug. Log those as they happen.
+
+**Four fields per session, recorded at close:**
+
+| Field | Note |
+|---|---|
+| Session shape | "one long turn" / "open back-and-forth" / mixed |
+| Wall-clock | Already known |
+| Token usage | Already visible |
+| **Re-establishment count** | How many times work stopped to re-explain context an earlier session already had |
+
+**The fourth field is the one that matters, and it is not the obvious one.**
+Tokens and wall-clock are badly confounded — task difficulty varies enormously
+between sessions, models differ, and the person's own familiarity with the
+project grows monotonically. Re-establishment count measures *the mechanism
+the hypothesis actually names* (state preservation, per 9b's refined read),
+and is largely immune to all three confounds. Ten sessions of it is worth more
+than two carefully constructed arms of token counts.
+
+**Two honest requirements**, or this produces confirmation rather than
+evidence:
+- **A negative result must be written up as plainly as a positive one.** If
+  long turns turn out not to help, that is the more valuable finding and the
+  one most likely to go unrecorded.
+- **Watch for single-author agreement.** Every observation in 9b so far was
+  written by an assistant that had already read the hypothesis it was
+  testing. Agreement across such observations is weak evidence. Where
+  possible, have the person record the fourth field themselves — they are the
+  one who experiences a re-explanation as a cost, and they have no stake in
+  the hypothesis being right.
+
 ### 9c. Ask the decision question *after* the investigation that informs it
 
 Sequencing failure worth naming, from the same session. The assistant put a
