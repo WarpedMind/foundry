@@ -76,6 +76,12 @@ A `PostToolUse` hook that mechanically triggers this review after every edit to 
 
 If a user explicitly wants this anyway (some users may prefer the noise tradeoff for a specific high-risk file or directory), it's possible to wire a `PostToolUse`/`Edit|Write` hook scoped to specific path patterns that appends a reminder via `additionalContext` rather than blocking — but this is opt-in, offered only if asked for, never part of the default Foundry scaffolding sequence. If built, validate it the same way every other Foundry hook is validated (pipe-test with synthetic stdin, confirm it doesn't fire on unrelated files) before wiring it in.
 
+## Closing out
+
+Once findings are reported (Step 5), end the turn with an `AskUserQuestion` naming the concrete next moves — this is where a review most often stalls, because "here are the findings" with no options leaves the user composing the follow-up themselves. Options worth offering, chosen by what the review actually produced: apply the fixes now (name which severities — e.g. "fix the CRITICAL/HIGH findings"), report only and leave them in KNOWN DEBT, re-review after the changes land, or widen the scope to something the review flagged as adjacent but out of scope. "Other" is built in, so 2-4 real options is enough.
+
+The one case where this convention does *not* apply: a review that genuinely found nothing. Step 3 already requires a plain, brief "no findings" rather than padding — manufacturing a four-option question on top of that would reintroduce exactly the padding that step forbids. Say it found nothing and stop. Same for any choice with an obvious default: the standing guidance to just pick it and proceed still wins over this section.
+
 ## Relationship to Foundry
 
 This skill is referenced by `foundry-init` (see its Step 3) the same way Promptify is: Foundry mentions it exists and when it's worth running, but does not own it, call it automatically, or make it part of the default scaffolding sequence. Works standalone in any project, with or without Foundry's other scaffolding — the KNOWN DEBT-append step in Step 5 degrades gracefully (asks where to put findings) if the project has no Foundry-style CLAUDE.md.

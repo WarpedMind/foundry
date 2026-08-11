@@ -153,6 +153,12 @@ Ask the user which scope they want:
 - It cannot detect whether another instance updated the docs more recently than this session — it can only surface the conflict for the user to resolve.
 - It does not auto-write anything. Every proposed addition requires explicit user confirmation.
 
+## Closing out
+
+Whatever the last step was (Step 4 for new/throwaway projects, Step 5 for the existing-project path), end the turn with an `AskUserQuestion` rather than prose — the same convention each sub-skill now carries, and the orchestrator sets the tone for all of them. Step 4's commit question is the usual anchor option; pair it with whatever is genuinely still open: add a piece that wasn't part of this run (`foundry-stack`, `foundry-governance`, Hook 4's drift logger), re-read a generated file the user hasn't skimmed yet, or stop here. 2-4 real options — `AskUserQuestion` adds "Other" itself.
+
+The tension to hold: this convention is about not making the user compose a next step from scratch at the end of a turn. It is not a mandate to ask more questions overall, and it does not override the standing guidance to pick the sensible default and proceed mid-flow — the questionnaire in Step 1 already warns against asking what can be inferred from the repo, and that still holds.
+
 ## Dismissing the status hook's offer (not part of foundry-init's own flow, but related)
 
 If the user responds to the status hook's offer (see `foundry-hooks` Hook 3) with something like "skip foundry" or "skip foundry for this project" rather than running `/foundry-init`, write `foundry.dismissed: true` into `.claude/settings.json` (merge, same as Step 2.5) so future sessions in this project stay silent rather than re-offering every time. This is a real, explicit user choice being recorded — don't write it speculatively or infer it from an unrelated "no" to some other question.

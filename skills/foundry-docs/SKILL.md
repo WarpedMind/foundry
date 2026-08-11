@@ -64,3 +64,7 @@ For an **existing** project that already has informal session notes or a changel
 
 1. Show the user the rendered CLAUDE.md and ask them to skim it before moving on — this is the file every future session anchors to, worth a real look rather than a rubber-stamp.
 2. Do not commit. Leave that to the user or a later explicit step (per Foundry's "commit only when asked" rule, which this very skill is about to write into the project's own CLAUDE.md).
+
+## Closing out
+
+Make the skim request above the *content* of a closing `AskUserQuestion`, not a prose sign-off the user has to answer freehand: proceed to `foundry-hooks` to wire the doc-loader, revise a specific section of the generated CLAUDE.md that doesn't match reality, migrate existing session notes into SESSIONS.md, or stop here. 2-4 concrete options; "Other" is supplied by the tool. Note that the answer to a question like this one genuinely varies by project, which is what makes it worth asking — the standing guidance to just proceed on a routine call still governs anything with an obvious default, and Step 0's per-file overwrite question stays where it is, mid-flow, because nothing can safely proceed past it.

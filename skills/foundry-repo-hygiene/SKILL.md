@@ -51,6 +51,12 @@ Once set to `"on"`: every commit that updates CLAUDE.md's Current Status or adds
 6. **If `foundry.readmeChangelogDiscipline == "not-applicable-yet"`** (see above) and README.md now has a Roadmap/changelog-style section, the project has crossed the same kind of state transition as item 5 — re-ask the discipline question now, since it was correctly skipped at the time but the precondition has since changed.
 7. Report findings plainly; don't auto-fix without showing the user what's stale and why first.
 
+## Closing out
+
+Whichever Part ran, end the turn with an `AskUserQuestion` offering the real next steps rather than a prose summary the user has to respond to freehand. Part 1's usual options: stage the scaffolding files for the first commit (staged, reviewed, *not* committed — see below), proceed to writing actual project code, or run `foundry-security`'s already-committed-secrets check on a retrofitted repo. Part 2's usual options: run the standalone freshness check now, fix a specific staleness finding it surfaced, or record the `foundry.readmeChangelogDiscipline` answer and move on. 2-4 options; "Other" is built in.
+
+Never phrase an option in a way that reads as pre-authorization to commit — "commit only when explicitly asked" is a standing rule this skill writes into the project's own docs, so the option is "stage and show the diff," and the commit itself needs its own explicit ask. Equally, this convention is not a reason to ask about things with obvious answers: `.gitignore` goes in before the first `git add` because the sequencing is already decided (Part 1, step 2), so that just happens — the standing "pick the sensible default and proceed" guidance still applies inside the flow.
+
 ## Verification (for this skill's own setup logic)
 
 The `.gitignore`-before-first-commit sequencing and the "stage specific files, not `-A`" rule were checked against the same git-safety standing instructions already in use elsewhere (the same git-safety conventions documented in another of the user's projects) — not a new invented rule, just made explicit and sequenced correctly here.

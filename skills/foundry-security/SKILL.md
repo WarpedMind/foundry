@@ -69,6 +69,12 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
 
 4. **Wire the secrets-guard pre-commit hook** by invoking `foundry-hooks` (Hook 2) if not already done.
 
+## Closing out
+
+End the turn with an `AskUserQuestion` offering the concrete next steps that are actually still open here, rather than an open-ended "let me know what you'd like next." Typical options for this skill: run the already-committed-secrets check (step 3) if it hasn't been run yet, wire the secrets-guard pre-commit hook via `foundry-hooks` (step 4), generate the missing `.env.example` (step 2), or stop here. Two to four real options; the built-in "Other" covers anything unanticipated, so there's no need to add a catch-all option of your own.
+
+This applies to the *end of the turn*, not to the steps within it — it does not override the standing guidance to pick the sensible default and proceed when a choice is genuinely routine. Merging a pattern into an existing `.gitignore`, for example, is just done, not offered as a menu item. And never offer a destructive step (history rewriting, force-push) as a casual option among others — step 3 already specifies the rotation-first sequencing and explicit confirmation those require.
+
 ## What this skill does NOT do
 
 It does not scan for secrets accidentally hardcoded *in source code* (e.g. a string literal API key) — that's a different, harder problem (secret-pattern scanning tools exist for this, e.g. `gitleaks`, `trufflehog`; Foundry doesn't bundle one but can recommend wiring one in via a `PreToolUse` hook if the user wants that level of rigor — treat as a future addition, not assumed present).

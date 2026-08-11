@@ -1,6 +1,27 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-08-11 (Closing-turn convention across all nine skills)
+
+### What was built
+- A `## Closing out` section in all nine `skills/*/SKILL.md` files, instructing the assistant to end the turn with an `AskUserQuestion` carrying 2-4 concrete, skill-specific next steps rather than open-ended prose. Prompted by the user's own sustained live experience that picking from options costs fewer round-trips than composing a reply.
+- Options are per-skill and drawn from what that skill actually leaves unrun — `foundry-security`: committed-secrets check / wire the hook / generate `.env.example`; `qc-review`: apply fixes / report only / re-review after changes / widen scope; `foundry-hooks`: add Hook 4 / pipe-test now / fresh session to confirm the loader fires; and so on.
+- `promptify`'s Step 5a was edited rather than given a new section — it already closed with the right question ("run it as-is, edit it, another pass"), just in prose; it now names the tool.
+- No template, hook, or mechanism changes. Instruction prose only.
+
+### What was decided
+See DECISIONS.md (2026-08-11) for full entries. Summary: the convention is Foundry-wide rather than ad hoc; each section is written per-skill rather than pasted, because the differing part (the options) is the whole value; and each states the tension with the standing "pick the sensible default and proceed" guidance in the form that bites hardest for that particular skill, so the convention can't become a license to ask about things with obvious answers.
+
+### What was verified
+- The session's premise — that `foundry-init` and `foundry-docs` already had this and seven others didn't — was **wrong, and checked rather than assumed**. Read how all nine files actually end: both do call `AskUserQuestion`, but mid-flow only (the questionnaire; the per-file overwrite decision). Neither closed a turn with one, and `promptify` asked its closing question in prose despite four in-file uses of the tool. So the real count of skills with a closing-out convention was zero, not two, and nine files needed the section, not seven. A grep count cannot distinguish mid-flow use from a closing use — that's exactly how the gap survived.
+- No boilerplate, confirmed mechanically rather than by impression: extracted all nine sections, split to sentences, `sort | uniq -c` — every count is 1, no sentence repeats across files.
+- `bash tests/run_fixtures.sh` re-run after the edits: all cases pass. This confirms nothing was broken, not that the new sections work — they're LLM-executed judgment instructions with no mechanical surface, the same situation as Session 18's prose-only findings, so there is nothing for the fixture suite to exercise. Noted explicitly rather than silently skipped.
+- Mid-flow `AskUserQuestion` calls were left untouched in all three skills that had them; the convention governs the close of a turn only.
+
+### What to do first next session
+- The real test is live use: the next time any `/foundry-*` skill runs for real, check whether the closing question offers genuinely useful options or degenerates into a reflexive four-option menu on a turn that should have just ended. That's the failure mode the per-skill guards are written against, and it can only be observed in a real run.
+- Consider whether this convention belongs in the CLAUDE.md template's standing Rules as well — it governs assistant behavior in any project, not just Foundry's own skills. This is the same open question the 2026-08-10 entry raised about playbook entry 9c-iv's "a recommendation must be an option" rule; the two are closely related and worth deciding together rather than separately.
+
 ## 2026-08-10 (External-project session — playbook entries from live use)
 
 ### What was built

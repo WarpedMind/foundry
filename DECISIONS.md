@@ -1,6 +1,23 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-08-11 — Ending a turn with a structured question is now a Foundry-wide convention
+
+### Every skill closes its turn with an `AskUserQuestion`, not with open-ended prose
+- The user reported from sustained live use that a turn ending in 2-4 concrete next-step options (plus `AskUserQuestion`'s built-in "Other") is materially better than one ending in prose, because picking is cheaper than composing. A `## Closing out` section was added to all nine skills.
+- **Why:** the round-trip cost is asymmetric. Prose like "let me know what you'd like next" makes the user reconstruct the available next steps from a transcript they just read, while the skill already knows exactly which of its own steps remain unrun. This is the same mechanism DECISIONS.md's 2026-08-10 entry describes from the other direction — a list of options defines what the outcome can be, and anything left off it is effectively not on the table.
+- **How to apply:** the closing question offers the steps this specific skill leaves open (e.g. `foundry-security`: run the committed-secrets check / wire the hook / generate `.env.example` / stop). Don't add a catch-all option — "Other" is supplied by the tool. Don't offer a destructive step as one casual choice among several; the existing confirmation sequencing for those still governs.
+
+### The audit found the convention didn't exist anywhere yet, including in the two skills assumed to have it
+- Premise going in was that `foundry-init` and `foundry-docs` already did this and the other seven didn't. Both do call `AskUserQuestion`, but mid-flow only — `foundry-init` for the questionnaire, `foundry-docs` for the per-file overwrite decision. Neither closed a turn with one, and `promptify` asked its "run it / edit it / another pass" question (Step 5a) in prose despite using the tool four times earlier in the same file.
+- **Why:** worth recording because the distinction is invisible from a grep count, which is how the gap survived. A skill that uses the tool heavily mid-flow looks identical to one that closes with it, so "which skills do this already" cannot be answered by counting mentions — only by reading how each file ends.
+- **How to apply:** all nine now carry the section, including the three that already used the tool. Mid-flow asks were left exactly as they were; the convention governs the close of the turn, not the interior.
+
+### Per-skill wording, not shared boilerplate, and an explicit guard against question inflation
+- Each section names that skill's own options and states the tension in its own terms. Checked mechanically: no sentence repeats across the nine sections.
+- **Why:** identical text pasted nine times degrades into something skimmed and ignored, and the useful content here is precisely the part that differs — the options. The tension is real and had to be written down rather than left implied: a standing convention to end with a question sits directly against the standing guidance to pick the sensible default and proceed, and without a guard it would license asking about things with obvious answers, which costs the round-trip this convention exists to save.
+- **How to apply:** each section states the limit in the form that bites hardest for that skill — `qc-review` must not manufacture a question when a review found nothing (its Step 3 already forbids padding), `foundry-governance` must not let a "fill this in" option become a back door around the anti-fabrication rule, `foundry-repo-hygiene` must not phrase an option as pre-authorization to commit, `foundry-stack` must not offer "mark it in use" without the evidence its verification section requires. Adding a tenth skill means writing a new section, not copying one.
+
 ## 2026-08-10 — Structured decision points: two failure modes found in live use
 
 ### A recommendation left out of the options list is not really on the table

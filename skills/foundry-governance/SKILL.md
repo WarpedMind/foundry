@@ -33,6 +33,12 @@ If invoked standalone (not via `foundry-init` right after `foundry-docs` created
 
 5. **Flag, don't resolve, genuine legal uncertainty.** If a question comes up that's actually a legal judgment call (not a factual lookup), say so plainly and recommend the user get real legal/compliance advice rather than treating the assistant's best guess as authoritative. This skill drafts structure and asks good questions; it is not a substitute for qualified review on anything with real regulatory stakes.
 
+## Closing out
+
+Close the turn with an `AskUserQuestion` offering specific next steps rather than open prose — for this skill, usually: research the applicable framework properly and come back to fill in the placeholder, leave the honest "not yet researched" text as-is for now, add the audit-trail/compliance-logging conventions (step 3), or take a named question to qualified legal/compliance review (step 5). 2-4 options, with the built-in "Other" for anything that doesn't fit.
+
+Two limits specific to this skill. First, an option to "fill this in" means *research it*, never write plausible-sounding text — the anti-fabrication rule in step 2 governs whatever the user picks, and a menu must not become a back door around it. Second, this convention is about ending a turn, not about converting settled things into questions: where the correct action is already determined (writing the honest placeholder when the answer was vague or absent), do it and say so, per the standing guidance to proceed on a genuine default rather than ask.
+
 ## What this skill does NOT do
 
 It does not generate boilerplate compliance checklists from generic templates (e.g. a generic "GDPR checklist" copy-pasted regardless of whether the project even touches EU user data). Every line should trace back to something specific the user told this skill about their actual project and actual applicable rules.

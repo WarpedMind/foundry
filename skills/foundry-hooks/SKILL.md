@@ -115,3 +115,9 @@ Detects when a Bash command's leading `cd` targets a directory outside this proj
 ## After wiring
 
 Confirm with the user before moving on — show the diff to `.claude/settings.json`, don't just report success.
+
+## Closing out
+
+Finish the turn with an `AskUserQuestion` listing what's actually left to wire, not a prose sign-off. The natural options here are the hooks not yet added and the verification step: add the optional Hook 4 directory-drift logger, pipe-test a wired hook against synthetic stdin now (worth offering explicitly — it's the step most likely to get skipped, and a hook that silently doesn't fire is the failure mode this skill exists to prevent), start a fresh session to confirm the SessionStart loader actually fires, or stop here. Give 2-4 concrete options; `AskUserQuestion` supplies "Other" for anything else.
+
+This is a rule about how the turn ends, and it doesn't loosen any of the in-flow asks above — nor does it tighten them into questions where none is needed. The existing "ask whether to replace or keep both" on a colliding SessionStart hook stays a real mid-flow question because it's genuinely ambiguous; choosing between an array-merge and an object-merge (step 4) stays a silent judgment call, because the type check answers it.
