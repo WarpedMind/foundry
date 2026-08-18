@@ -1,0 +1,23 @@
+# foundry-audit allowlist — one entry per line, `#` comments allowed.
+#
+# Two kinds of entry are recognised: a repo-relative path that is referenced
+# deliberately before it exists, and an identifier (e.g. ADR-NNN) that appears
+# in the documents as an example rather than as a reference.
+#
+# This file is not a place to silence findings you'd rather not fix. If an
+# entry here is hiding something real, the check is right and the document is
+# wrong. Every entry should be able to say why it's here.
+
+# Foundry's docs describe foundry-audit's own dangling-reference check, which
+# means writing out an example dangling ID. Foundry itself uses date-headed
+# decisions, not ADR numbering, so this is subject matter, not a reference.
+ADR-099
+
+# SESSIONS.md (2026-08-17) recounts a real dangling reference this tool caught:
+# a decision cited as 2026-06-30 when the entry is dated 2026-06-28. Telling
+# that story requires writing the wrong date down next to the words
+# "DECISIONS.md", which is exactly what the check looks for. Allowlisted rather
+# than reworded, because the account is worth more than the silence — and there
+# is no decision entry on this date to shadow. If one is ever written, delete
+# this line first.
+2026-06-30

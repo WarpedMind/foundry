@@ -93,7 +93,7 @@ Foundry shows you a list of everything it created or changed, then asks if you w
 
 ### 7. Two more skills get mentioned (not run)
 
-Once scaffolding is done, Foundry tells you that `/promptify` and `/qc-review` exist and when they're useful — it doesn't run either one for you. See their own sections below.
+Once scaffolding is done, Foundry tells you that `/promptify`, `/qc-review` and `/foundry-audit` exist and when they're useful — it doesn't run any of them for you. See their own sections below.
 
 ## Why this order matters (the short version)
 
@@ -157,6 +157,20 @@ This is **not** the same thing as a general `/code-review`, if your project has 
 **When to run it**: it'll be suggested — never run automatically — right before you'd treat security-sensitive code (auth, payments, credentials) as finished, right before a destructive-capable script (data deletion, migrations) is considered done, or right before a new hook gets wired in. You can also just run it any time you want a second, skeptical look at something.
 
 **One honest thing worth knowing**: getting an actual "found nothing" result is rarer than you might expect for any file with real logic in it. In testing, two rounds of fixing real issues in a sample auth file *still* turned up another real, legitimate bug each time. That's the adversarial review doing its job, not a sign something's wrong with the tool or your code specifically — expect it to keep looking past the obvious fix.
+
+## foundry-audit
+
+Docs rot in a way you can't read your way out of. A link to a decision that no longer exists, a file path left behind by a rename, a document nothing points at any more — each of those reads perfectly on the page. The only way to catch them is to run something.
+
+**How to run it:** `/foundry-audit` in any project, or `/foundry-audit <path>` for a project somewhere else. It reads your documents and changes nothing without asking.
+
+**What it actually checks.** References to decision-log entries resolve to entries that exist. The decision log is still in the newest-first order its own header claims. Backticked file paths pointing into real directories still point at real files — and if one doesn't, it tells you where a file by that name went, which is usually a rename that missed a spot. Every document is reachable from CLAUDE.md or README.md. Code fences are closed, tables have consistent columns, no `TODO:` placeholder got left behind. And if a decision names where it gets enforced, that place exists.
+
+**Reading the output.** Findings are real defects. The "FOR REVIEW" section underneath is not — it's things that need your judgment rather than a fix, like a document that mentions filenames as examples rather than as links. The one status worth knowing about is `SKIP`: it means a check *couldn't run* because what it needed wasn't there, and the tool counts that as a finding rather than a pass. A check that didn't run is an unknown, not a clean bill of health, and this is the one place where a tool being pedantic actually earns its keep.
+
+**When it's worth running:** after renaming or moving files around, before making a repo public or handing it to someone else, or after a session that rewrote a lot of documentation. The assistant will offer it at those points, and won't run it on its own.
+
+**What it can't do.** It checks documents, not truth. It can confirm your decision log has an entry dated the 3rd; it cannot confirm the entry describes what actually happened, or that a rule you wrote down is a rule anyone follows. It also deliberately errs toward silence on filenames used as examples — if your docs discuss filenames as subject matter, those land in the review list rather than being flagged as broken, which means a genuinely stale reference can end up there too. Scan that list; it's short.
 
 ## Decision guide — quick answers to "should I say yes or no here"
 

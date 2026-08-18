@@ -100,11 +100,12 @@ Run in this order (matches dependency order — later steps assume earlier ones 
 
 After Step 2 completes successfully, write `foundry.scaffolded: true`, `foundry.scaffoldedDate: "<today's date>"`, and `foundry.scaffoldMode: "full"` into `.claude/settings.json` (merge — don't clobber the hooks object `foundry-hooks` just wrote). `scaffolded`/`scaffoldedDate` are what the status hook (see `foundry-hooks` skill, Hook 3) checks on future sessions to know not to offer `/foundry-init` again. Without this step, every future session in this project would see "not set up" forever even after a successful run — so this is not optional cleanup, it's the thing that makes the status hook's positive case work at all. `scaffoldMode: "full"` (as opposed to `"minimal"`, written by Step 0's throwaway path) is what lets `foundry-repo-hygiene`'s freshness check later notice if a minimal-mode project has outgrown that original choice.
 
-## Step 3 — mention Promptify and qc-review
+## Step 3 — mention Promptify, qc-review and foundry-audit
 
-Once scaffolding is done, tell the user both are available (from this Foundry install), without invoking either automatically — just surface that they exist:
+Once scaffolding is done, tell the user all three are available (from this Foundry install), without invoking any of them automatically — just surface that they exist:
 - `/promptify` and `/promptify!` for turning rough task descriptions into structured, effective prompts — worth a try the next time they're about to write a multi-step request.
 - `/qc-review` for an adversarial, fresh-context review hunting specifically for destructive actions, security gaps, and silent overwrites — worth running before treating security-sensitive or destructive-capable work as finished. This is narrower than a general code review; mention that distinction if the project also has something like `/code-review`.
+- `/foundry-audit` for a mechanical structural check of the docs just created — dangling decision references, broken file paths after a rename, a decision log out of its stated order, documents nothing links to. Worth mentioning that it's most useful *later* rather than now: a doc set that was written minutes ago has had no time to drift, and the value shows up after a rename, a restructure, or a few months of sessions. Note the contrast with `/qc-review` if the user seems to conflate them — that one applies adversarial judgment to code, this one runs deterministic checks over documents.
 
 ## Step 4 — final review, no auto-commit
 
