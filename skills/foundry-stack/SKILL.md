@@ -66,6 +66,8 @@ End the turn with an `AskUserQuestion` carrying concrete options instead of an o
 
 Don't let the menu become a route around this skill's own bars. "Mark it in use" is only ever an option when the evidence from the verification-discipline section actually exists — otherwise the honest choice is "pending verification," and it should be presented that way. And this convention governs the close of the turn only: it doesn't override the standing guidance to just proceed on a routine call, so a single obvious row update gets made and reported, not offered as a question.
 
+Include `/foundry-audit` when a row's "why" was satisfied by pointing at DECISIONS.md rather than by reasoning stated inline. Those pointers are precisely the form the audit resolves mechanically, and a mistyped date in one reads perfectly while resolving to nothing. Where every entry justifies itself inline, no such link exists and the offer stays off the menu.
+
 ## What this skill does NOT do
 
 It does not build or maintain a cross-project master rollup (a single STACK.md aggregating multiple repos). That's explicitly out of scope — Foundry operates per-project, and an aggregation tool spanning repos is a different, separate concern (potentially its own future tool, not this skill's job).

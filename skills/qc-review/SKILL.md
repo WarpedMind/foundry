@@ -78,11 +78,43 @@ If a user explicitly wants this anyway (some users may prefer the noise tradeoff
 
 **A separate, already-built hook takes a different approach and is worth reaching for first: `foundry-hooks`' Hook 5 (push-time qc-review offer).** Rather than firing on every edit, it's a `PreToolUse` hook matching `git push` — a real completion checkpoint, not a mid-edit one — that surfaces a one-time-per-session `systemMessage` suggestion when the pushed commits touch this skill's own Step 2 risk categories. It never runs the review itself, only offers it, and is optional (offered, not forced into the default sequence) the same way Hook 4 is. See `skills/foundry-hooks/SKILL.md`'s Hook 5 section for the mechanism and its negative-branch analysis.
 
+## Periodic calibration — how this skill's own sensitivity gets checked
+
+A finding this skill reports can be verified: Step 4 requires reproducing it.
+A *clean* result cannot. "No findings" and "did not look hard" produce identical
+output, and re-running produces the identical output again — the review is its
+own only witness. This is precisely the unfalsifiability `foundry-audit` avoided
+by living in a script, and it is not avoidable here, because the judgment that
+makes this skill able to find an auth bypass is the same property that makes its
+silence unverifiable.
+
+What is available instead is calibration against known answers. `tests/calibration/qc-review/`
+in the Foundry repo holds a small subject file with five planted defects — one
+per failure class Step 2 commits to hunting — an answer key with per-defect
+grading rules, a procedure, and an append-only results log. Run it after editing
+this file (especially Steps 2 and 3), when the subagent's model changes, and
+before leaning on a clean review for a release or a handoff.
+
+**This is a manual periodic check and can never be a CI gate.** The review
+dispatches an LLM subagent: non-deterministic, billed, minutes long, and unable
+to run in GitHub Actions. `tests/run_fixtures.sh` deliberately does not execute
+it and must not be extended to claim it does — a green suite that silently
+excludes this would imply a coverage that does not exist, which is the exact
+error the calibration is built to expose.
+
+Grade for partial credit, not pass/fail. Finding four of five is real
+information about sensitivity; collapsing it to a verdict throws that
+information away. What matters is the comparison between logged runs — the same
+defect missed twice says something about these instructions, one missed once
+says little — so record every run, including the bad ones.
+
 ## Closing out
 
 Once findings are reported (Step 5), end the turn with an `AskUserQuestion` naming the concrete next moves — this is where a review most often stalls, because "here are the findings" with no options leaves the user composing the follow-up themselves. Options worth offering, chosen by what the review actually produced: apply the fixes now (name which severities — e.g. "fix the CRITICAL/HIGH findings"), report only and leave them in KNOWN DEBT, re-review after the changes land, or widen the scope to something the review flagged as adjacent but out of scope. "Other" is built in, so 2-4 real options is enough.
 
 The one case where this convention does *not* apply: a review that genuinely found nothing. Step 3 already requires a plain, brief "no findings" rather than padding — manufacturing a four-option question on top of that would reintroduce exactly the padding that step forbids. Say it found nothing and stop. Same for any choice with an obvious default: the standing guidance to just pick it and proceed still wins over this section.
+
+**No `/foundry-audit` option belongs in that list, and the two attempts to add one are worth recording so a third isn't made.** The first keyed on Step 5 having written findings into KNOWN DEBT — but Step 5 is not optional, so that reduced to "the review found something," whose complement the paragraph above already handles. The second keyed on whether those findings cite file paths; Step 4 requires reproducing a finding and Step 5's own template asks for something specific enough to act on, so a reproduced security finding naming no file is close to a null set. Both were unconditional offers wearing a condition. There is also no reason to reach for a document checker at the close of a security review: it cannot find anything in the class this skill just hunted, and appending it to the menu spends attention that belongs on the findings. This skill runs in projects that have never heard of `/foundry-audit` anyway.
 
 ## Relationship to Foundry
 

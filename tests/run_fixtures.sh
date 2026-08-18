@@ -510,6 +510,16 @@ check_audit_case "numeric claim agrees across files" 0 "RESULT: CLEAN" \
 rm -rf "$AUDIT_TMP" /tmp/_a /tmp/_b
 echo "  done."
 
+# --- NOT COVERED HERE, deliberately ---
+# qc-review's calibration fixture (tests/calibration/qc-review/) is NOT run by
+# this script and must never be added to it. That check dispatches an LLM
+# subagent: non-deterministic, billed, minutes long, and impossible in GitHub
+# Actions. Running it here would put a non-reproducible result behind a
+# pass/fail gate and let a green suite imply coverage it does not have. It is a
+# manual periodic calibration — see that directory's README.md.
+echo "== NOT COVERED: qc-review calibration (tests/calibration/qc-review/) =="
+echo "  manual only — LLM subagent, non-deterministic, never gated here."
+
 if [ "$FAIL" -eq 0 ]; then
   echo "All fixture cases passed."
 else

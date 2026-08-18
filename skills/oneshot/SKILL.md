@@ -51,6 +51,8 @@ When a piece of substantial work finishes and there's a natural next step, end t
 
 **Continuous-session override:** if the user has set a standing expectation to keep working this way for a stretch of the conversation — e.g. "let's keep going like this until I say we're done," or the same intent in other words — that instruction overrides the anti-filler guard for the rest of that stretch. In that mode, don't let a turn end in silence just because there's no single obvious next step: close with a question offering the real forks available (continue deeper in the current direction, pivot to an adjacent open item, or wrap up) rather than a bare summary. The anti-filler guard still applies to *manufacturing fake options within that question* — the options offered should be genuinely different real paths, not padding — but the turn itself should still end with a question, not silence, until the user says otherwise.
 
+Nothing tool-specific attaches to this convention. `oneshot` is meant to work in projects that have never heard of `/qc-review` or `/foundry-audit`, so what it states is the general rule — an option earns its place from what the turn actually touched, never from being available — and each Foundry skill applies that rule to its own commands in its own closing section.
+
 ## The negative branch
 
 If a batched question's answer reveals that an earlier assumption (yours or an earlier answer) no longer holds, don't silently proceed on the stale assumption — surface it and ask again, scoped narrowly to just what changed. This is the one case where re-asking is correct: the alternative is producing work built on a premise the user never actually confirmed.
