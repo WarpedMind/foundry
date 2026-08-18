@@ -1,6 +1,16 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-08-18 (Absolute-rule candidate triage — `PROPOSALS/2026-08-18-absolute-rule-triage.md`)
+
+Ran the fully-scoped handoff: triage the `never`/`non-negotiable` bullet lines `foundry-audit`'s judgment-assisted check 9 has been reporting as INFO every run, unexamined, for several sessions. Re-derived the actual candidate set from `skills/foundry-audit/audit.sh`'s own regex rather than trusting the handoff's sampled spot-check or its stated count — found **17**, not 16 (a Roadmap line was added to README.md after the handoff was written, same day). Classified each against the handoff's A/B/C/D criterion (standing rule for the assistant / descriptive prose / rule for the human user / another project's finding) and recorded full reasoning in `docs/absolute-rule-triage-2026-08-18.md`.
+
+**Result: zero new edits to CLAUDE.md's Rules section.** All 11 README.md candidates are (B) — either feature description or Roadmap changelog entries recording what was built or investigated; none instructs a future assistant session. The one the handoff flagged as worth slowing down for — "It never silently overwrites an existing CLAUDE.md..." — is real but (B): confirmed the enforcement actually lives in `skills/foundry-docs/SKILL.md` Step 0 ("never silently overwrite an existing file (mandatory, check before anything else)", line 12), not in a restated rule. USER_GUIDE.md's 3 split: two are (C) — the folder-scope line and the anti-fabrication line both address the human reader, not the assistant, confirming the handoff's own hypothesis on the folder-scope line specifically — and one ("Foundry never commits automatically; it always asks first") is (A)-shaped but turned out to already be covered verbatim by CLAUDE.md's existing "Commit only when explicitly asked" Rule, so recorded as already-satisfied rather than a new addition. `docs/context-efficiency-playbook.md`'s 3 are (D), confirming the handoff's prediction that the whole file reads as another project's retrospective.
+
+`audit.sh`'s pattern was deliberately left unchanged despite a 17/17 non-actionable rate — narrowing it to suppress the INFO line would be tuning the tool by the documents it audits, which the check's own design forbids. This INFO line will keep firing on this doc set by design; the fix was reading it once, not making it stop appearing.
+
+Removed the `[foundry-audit, 2026-08-18]` KNOWN DEBT entry (resolved) and the corresponding "Next session priorities" line. **Prose triage, no mechanical surface** — `tests/run_fixtures.sh` and `skills/foundry-audit/audit.sh` both re-run clean afterward, and neither test the disposition itself, only that nothing else broke. No DECISIONS.md entry: a triage landing on 17 instances of (B)/(C)/(D) and zero new rules is a recorded result, not a design choice.
+
 ## 2026-08-18 (Built items 1 and 4 — the handoff's remaining two)
 
 ### Handoff verified first, and items 2/3 checked rather than assumed
