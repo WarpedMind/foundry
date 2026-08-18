@@ -1,6 +1,12 @@
 # Handoff — cut the SessionStart doc-loading burden
 
-**Date written:** 2026-08-18. **Status:** ready for a fresh session.
+**Date written:** 2026-08-18. **Status:** COMPLETE — all four items executed 2026-08-18.
+Items 1-3 in one session (the archive splits), item 4 in a second (the durable mechanism:
+`foundry-audit`'s auto-load budget check plus `foundry.docBudgetDiscipline` in
+`foundry-repo-hygiene` Part 2). See `DECISIONS.md`'s two 2026-08-18 doc-budget entries and
+`SESSIONS.md` for what was decided and what was deliberately not built. Kept for the
+reasoning, not as open work — do not re-execute it.
+
 **Prerequisite:** none. Working tree was clean and pushed when this was written.
 
 **Suggested model: Sonnet, medium effort — for items 1-3, which is most of the work.**

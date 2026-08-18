@@ -3,6 +3,59 @@
 # Entries from 2026-06 are archived, verbatim, in DECISIONS_ARCHIVE.md — not auto-loaded;
 # see "Where the history lives" in CLAUDE.md.
 
+## 2026-08-18 — Doc-budget handoff item 4: the thresholds, the INFO/FAIL split, and what the check refuses to do
+
+### The auto-load budget is 160,000 bytes, derived twice independently rather than picked
+- Two derivations, neither adjusted to agree with the other. **(A) Context budget:** the injection is pure overhead spent before the user types; 20% of a 200k window is where overhead stops being background and starts competing with the working set = 40,000 tokens; at this repo's own measured ratio for prose Markdown (303,867 bytes ≈ 76,000 tokens = 4.0 bytes/token) that is 160,000 bytes. **(B) Lead time:** measured across this repo's full history (51 commits) the loaded set grew +294,148 bytes, median non-zero per-commit delta ~5,900 B, ~14,700 B per session; from the post-archive 84,138-byte baseline a 160,000-byte trip point leaves ~76,000 B of headroom ≈ five average sessions.
+- **Why:** this repo's anti-fabrication standard applies to constants, not just prose. A single derivation is one assumption wearing a decimal point — the convergence of two unrelated ones is the actual defence, and it is stated in full in `skills/foundry-audit/SKILL.md` so a later reader can attack the logic instead of taking the number on faith.
+- **How to apply:** if the number ever moves, move it because one of those two derivations changed (a different context window, a re-measured growth rate), and record which. Do not move it to clear a finding — that is the failure the check exists to catch, performed on the check.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (`BUDGET_INFO_BYTES`, with both derivations in the comment above it); `skills/foundry-audit/SKILL.md`.
+
+### The hard ceiling, 304,000 bytes, is deliberately not derived — it is the size this log already rejected
+- Set to the measured level this repo actually reached (303,867 bytes) and recorded as unworkable in the entry below.
+- **Why:** every other candidate ceiling would have been another invented multiple. This one is evidence: arriving back at it is not a judgment call about what is too big, it is proof the archive discipline did not hold.
+- **How to apply:** never raise it. If a project genuinely needs a larger auto-loaded set, that is a case for `--budget-file` scoping or a different loader, not for editing the ceiling.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (`BUDGET_FAIL_BYTES`).
+
+### INFO at the budget, FAIL only at the ceiling
+- Crossing the budget reports INFO and does not affect the exit code; crossing the ceiling is a FAIL.
+- **Why:** an over-budget doc set is not defective — every reference resolves, nothing is stale. It is work to schedule. A FAIL at the budget would exit 1 on every run between "budget crossed" and "someone found a session for the archive pass", i.e. an unclearable recurring finding, which is precisely the noise `audit.sh`'s path check already trades recall away to avoid. The ceiling is where it stops being a judgment call.
+- **How to apply:** same two-tier shape as the `Enforced at:` check (mechanical FAIL for a missing path, INFO for a locus nothing can verify). A future check that wants to report "this costs too much" rather than "this is wrong" should copy this split rather than reaching for FAIL.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (check 11); `tests/run_fixtures.sh` (the INFO case asserts exit **0** as well as the message — an implementation that made it a FAIL would print the right text and behave wrongly, so the exit code is the load-bearing half of that assertion).
+
+### The threshold is on the total; the per-file breakdown prints on every outcome including PASS
+- One line: total bytes, approximate tokens, percent of budget, and every loaded file's size largest-first.
+- **Why:** the total is what gets injected and the files trade off against each other — a per-file limit would be satisfiable while the total stayed unacceptable, which is literally what items 1-3 did when they moved bulk *between* files as well as out of them. But a bare total is not actionable, because the fix is always "archive the largest contributor" and the total does not say which. Printing the percentage on PASS makes growth legible run-over-run instead of only at the moment it trips.
+- **How to apply:** read the percentage, not just the PASS. A jump of twenty-odd points in one session is the signal, and it appears in a passing run.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (check 11's report line).
+
+### The auto-loaded set is derived from the project's real loader, and `CLAUDE.md` counts even with no hook at all
+- Parsed out of `.claude/settings.json` (then `.claude/settings.local.json`) by reading the `DOC_FILES_ARR=(...)` array the hook template renders — textually, since `audit.sh` has no `jq` dependency. `CLAUDE.md` is unioned in unconditionally, because Claude Code loads it as project instructions whether or not any hook exists. Check 9 (absolute-rule coverage) was rewired onto the same derived set in the same change, replacing its hardcoded three filenames.
+- **Why:** the file list is per-project (`templates/settings.hooks.json.template` renders `{{DOC_FILES_QUOTED}}`), so assuming the three-file default would measure a non-default project against the wrong set — and for check 9 that error runs in the direction of a false pass, silently excluding documents the session never actually sees. Treating "no hook" as "nothing loaded" would have been the same mistake in the other direction: a 300KB `CLAUDE.md` costs exactly what a 300KB three-file set costs.
+- **How to apply:** any future check that reasons about "what the session sees" reads `LOADED_F`, not a filename list. Two definitions of the auto-loaded set in one script is the cross-document drift this repo rediscovers most often, in miniature.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (the "auto-loaded subset" derivation block, shared by checks 9 and 11); `tests/run_fixtures.sh` (matched pair: a rule in a doc the loader omits is surfaced, the same rule in a doc it loads is not).
+
+### A loader present but unparseable is a SKIP, and `--budget-file` exists so that SKIP is always clearable
+- If a SessionStart hook command both declares itself a SessionStart hook and names a Markdown file but yields no parseable array, the check reports SKIP (a finding). `--budget-file PATH`, repeatable, states the set explicitly and overrides the parse entirely.
+- **Why:** documents are being injected and the size is unknown, and unknown is not acceptable — this is the standing negative-branch rule applied to a new check rather than rediscovered by a review. But a finding a user has no way to clear is the other failure: it trains people to ignore the exit code. The escape hatch is what makes the strict default affordable.
+- **How to apply:** when adding a check whose input set might be undeterminable, ship the SKIP and the escape hatch together. One without the other is either a false pass or permanent noise.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (the `unparseable` branch and `--budget-file`); `tests/run_fixtures.sh` (both the SKIP and the escape are mutation cases).
+
+### `foundry.docBudgetDiscipline` handles what the project *does* about it, and is explicitly untested prose
+- A one-time question recorded in `.claude/settings.json`, asked the first time the budget check reports INFO or FAIL — not at `foundry-init` time, where the doc set is a few KB of template and the question is unanswerable. States `"on"` / `"off"` / `"not-applicable-yet"`, and all four negative branches are written out by name: never fires; fires before the field was ever asked; `"off"` chosen; `foundry-audit` never run at all.
+- **Why:** the check can only report — it cannot decide whether this project wants an archive pass scheduled as due work. Splitting measurement from decision keeps the mutation-tested half genuinely mutation-tested and stops the prose half from borrowing its credibility. The `"not-applicable-yet"` state is copied deliberately from `foundry.readmeChangelogDiscipline`, which shipped once without it and was indistinguishable from "never checked".
+- **How to apply:** unset, or `"not-applicable-yet"`, when the budget is over means *ask now* — never `"off"`. Absence of an answer is not a recorded decision to skip. And `"off"` governs scheduling only: the ceiling FAIL still fails the audit regardless.
+- **Enforced at:** `skills/foundry-repo-hygiene/SKILL.md` (Part 2, the entry and its numbered freshness-check item); nothing mechanical, stated there in as many words — no case in `tests/run_fixtures.sh` covers it and none can.
+
+### Four things were considered and deliberately not built
+- **No second, earlier "approaching budget" threshold.** The INFO tier is already sized with ~five sessions of runway specifically so the question can be asked in time; a 75%-of-budget pre-warning would be a second number needing its own defence to buy something the first one already provides.
+- **No tokenizer dependency.** Token counts are reported as `~N` from a flat 4.0 bytes/token measured on this repo's prose; bytes are exact. Buying real accuracy would cost a dependency for a figure nobody acts on at that precision.
+- **No periodic nudge from Hook 3, and no auto-archive.** Same reasoning that keeps `qc-review`'s auto-run opt-in and kept the audit's own periodic-nudge variant unbuilt: SessionStart fires before the drift this session will cause, and an archive move that happens without being shown is exactly the silent-doc-edit this repo's skills all guard against.
+- **The budget check was not added to the SessionStart hook itself.** It would then run on every session open at the moment it can do least about the result, and the hook's job is loading, not judging.
+- **Why:** each of these is cheap to build and would have looked like thoroughness. Recording the refusals is what stops a later session rebuilding one and calling it an improvement.
+- **How to apply:** if any of them is proposed again, the burden is new evidence — a real project where the mechanism as shipped demonstrably came too late — not a fresh argument from first principles.
+- **Enforced at:** this entry; `skills/foundry-audit/SKILL.md`'s periodic-nudge section (unchanged, and now with a second reason).
+
 ## 2026-08-18 — Doc-budget handoff items 1-3 executed: cutover rules for what stays inline
 
 ### CLAUDE.md's `Current status` narrative log moved verbatim to `PROJECT_HISTORY.md`; a fresh 15-25 line summary written in its place
@@ -100,7 +153,7 @@
 - `skills/foundry-audit/audit.sh` is the first real program in this repo's skill layer — every other skill is instructions for an assistant to execute. Considered and rejected: keeping the checks as prose (most consistent with the existing pattern, and with CLAUDE.md's own "no compiled code" stack line), and generating a per-project copy of the script into each scaffolded project.
 - **Why:** the deciding argument isn't consistency or convenience, it's falsifiability. This skill's entire value claim is that mechanical checks catch what reading misses — and a prose check has no artifact to inject a defect into, so it can never be demonstrated capable of failing. That makes it precisely the unfalsifiable verification the 2026-08-17 template rule (added hours earlier, same day) forbids. The per-project copy was rejected on the staleness argument `foundry-update` exists for: every copy freezes at the day it was written. A secondary reason matters too — an assistant asked to "check every referenced path exists" writes a slightly different command each run, so the output varies with who ran it, and the clean runs still get counted.
 - **How to apply:** the split is the rule, not the script. Anything mechanically checkable goes in `skills/foundry-audit/audit.sh` *with* a mutation case. Anything needing semantic judgment (is this absolute rule the same as that one, does this pasteable prompt stand alone) stays out of the script entirely and is labeled judgment in `SKILL.md`, so it can't inherit the tested checks' credibility. Don't add a check to the script that can only be approximated by a keyword-presence proxy — a proxy that passes with the defect present is the failure being guarded against, wearing the costume of a fix.
-- **Enforced at:** `tests/run_fixtures.sh`'s `foundry-audit` suite (30 mutation cases); the standing Rule added to this repo's CLAUDE.md forbidding a check without one; `CONTRIBUTING.md`'s pre-PR checklist.
+- **Enforced at:** `tests/run_fixtures.sh`'s `foundry-audit` suite (one mutation case per FAIL-capable check); the standing Rule added to this repo's CLAUDE.md forbidding a check without one; `CONTRIBUTING.md`'s pre-PR checklist.
 
 ### The mutation harness was itself proven falsifiable, because it went green on the first run
 - All 23 cases in the suite at that point (it has since grown) passed the first time they were run end to end. Rather than treat that as success, two checks in `skills/foundry-audit/audit.sh` were deliberately neutered — the dangling-decision-reference comparison and the code-fence parity test — and the suite re-run each time to confirm the matching case went red, then restored.

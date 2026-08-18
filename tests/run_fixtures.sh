@@ -507,6 +507,104 @@ check_audit_case "numeric claim agrees across files" 0 "RESULT: CLEAN" \
   "printf '\nThere are three widgets.\n' >> CLAUDE.md && printf '\nAll three widgets shipped.\n' >> SESSIONS.md" \
   --numeric widgets
 
+# --- check 11: the auto-load budget -----------------------------------------
+# This check measures cost rather than correctness, so its defect class is
+# "a doc set that grew past the threshold and nothing said so". Injecting that
+# means writing a real loader into the fixture and padding a file it names.
+#
+# Writes a fixture .claude/settings.json whose SessionStart doc-loader names
+# exactly the files given, in the same rendered form Foundry actually produces
+# (a bash array literal inside a JSON string, so the quotes arrive escaped) —
+# not a simplified stand-in, because the escaped-quote parse is itself part of
+# what these cases exist to exercise. Callable from a mutation snippet: those
+# run in a subshell of this script, so functions defined here are in scope.
+write_loader_settings() {
+  mkdir -p .claude
+  local arr="" f
+  for f in "$@"; do arr="${arr}\\\"${f}\\\" "; done
+  printf '%s\n' \
+    '{' \
+    '  "hooks": {' \
+    '    "SessionStart": [' \
+    '      {' \
+    '        "hooks": [' \
+    '          {' \
+    '            "type": "command",' \
+    "            \"command\": \"DOC_FILES_ARR=($arr); for f in \\\"x\\\"; do cat \\\"\$f\\\"; done; echo hookEventName: \\\"SessionStart\\\"\"" \
+    '          }' \
+    '        ]' \
+    '      }' \
+    '    ]' \
+    '  }' \
+    '}' > .claude/settings.json
+}
+
+# A hand-rolled SessionStart hook that cats a document with no parseable file
+# list — the shape the "unparseable" branch exists for.
+write_optout_loader_settings() {
+  mkdir -p .claude
+  printf '%s\n' \
+    '{' \
+    '  "hooks": {' \
+    '    "SessionStart": [' \
+    '      {' \
+    '        "hooks": [' \
+    '          {' \
+    '            "type": "command",' \
+    '            "command": "cat CLAUDE.md DECISIONS.md; echo hookEventName: SessionStart"' \
+    '          }' \
+    '        ]' \
+    '      }' \
+    '    ]' \
+    '  }' \
+    '}' > .claude/settings.json
+}
+
+# ~52 bytes per line, so the line counts below are the byte budget in disguise.
+PAD='Padding line written to grow this file past the budget.'
+
+# Over the budget, under the ceiling: INFO, and deliberately exit 0. The
+# assertion on the exit code is as load-bearing as the one on the text — an
+# implementation that made this a FAIL would produce the right message and the
+# wrong behaviour.
+check_audit_case "auto-load budget crossed (INFO, does not fail the run)" 0 "an archive pass is due" \
+  "write_loader_settings CLAUDE.md DECISIONS.md SESSIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+check_audit_case "auto-load budget past the hard ceiling (FAIL)" 1 "hard ceiling" \
+  "write_loader_settings CLAUDE.md DECISIONS.md SESSIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<6000;i++) print p}' >> DECISIONS.md"
+
+# Precision guard, and the one that proves the check measures the *loaded* set
+# rather than the scanned one: an oversized document nobody injects costs a
+# session nothing, and flagging it would be a finding with no fix.
+check_audit_case "an oversized doc outside the loaded set is not a budget finding" 0 "auto-load budget" \
+  "write_loader_settings CLAUDE.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<6000;i++) print p}' >> DECISIONS.md"
+
+# Negative branch: a loader is present and clearly injecting documents, but its
+# file list cannot be read. The budget is unknown, and unknown is a finding
+# here, not a pass.
+check_audit_case "loader present but its file list is unparseable (SKIP = finding)" 1 "could not be parsed" \
+  "write_optout_loader_settings"
+
+# ...and the escape hatch clears it, so the SKIP above is never a permanent
+# unclearable finding.
+check_audit_case "--budget-file states the set an unparseable loader hides" 0 "auto-load budget" \
+  "write_optout_loader_settings" --budget-file CLAUDE.md --budget-file DECISIONS.md
+
+# A file the loader names but which does not exist is reported, not silently
+# counted as zero — matching the loader's own [ -f ] guard while still saying so.
+check_audit_case "a loader naming a missing file says so in the breakdown" 0 "named but absent" \
+  "write_loader_settings CLAUDE.md GONE.md"
+
+# --- check 9 now reads the derived loaded set, not three hardcoded names -----
+# Same change, and it needs its own pair: the check's whole job is to surface
+# absolute rules the session never sees, so getting the loaded set wrong makes
+# it silently wrong in the direction of a false pass.
+check_audit_case "an absolute rule in a doc this project's loader omits is surfaced" 0 "SESSIONS.md contains 1 absolute-sounding" \
+  "write_loader_settings CLAUDE.md && printf '\n- The guard must never be skipped.\n' >> SESSIONS.md"
+
+check_audit_case "the same rule in a doc the loader does include is not surfaced" 0 "no absolute-sounding rules found outside" \
+  "write_loader_settings CLAUDE.md SESSIONS.md && printf '\n- The guard must never be skipped.\n' >> SESSIONS.md"
+
 rm -rf "$AUDIT_TMP" /tmp/_a /tmp/_b
 echo "  done."
 

@@ -4,6 +4,14 @@
 # Run from a project root:  bash ~/.claude/skills/foundry-audit/audit.sh
 # Or point it somewhere:    bash audit.sh --root /path/to/project
 #
+# Flags:
+#   --root DIR          audit a different project root
+#   --doc PATH          add a file to the scanned document set (repeatable)
+#   --numeric NOUN      cross-check a counted claim across the doc set
+#   --budget-file PATH  state the auto-loaded document set explicitly, for a
+#                       project whose SessionStart loader this script cannot
+#                       parse (repeatable; see the auto-load budget check)
+#
 # Exit codes:
 #   0  every applicable check ran and found nothing
 #   1  one or more FAIL findings (see output)
@@ -28,6 +36,7 @@ set -uo pipefail
 ROOT="$(pwd)"
 NUMERIC_NOUNS=""
 EXTRA_DOC_ARGS=""
+BUDGET_FILE_ARGS=""
 
 # A missing value for a flag is a usage error, not a findings-level result —
 # `--root` as the final argument used to die on bash's own unbound-variable
@@ -46,8 +55,10 @@ while [ $# -gt 0 ]; do
 $2"; shift 2 ;;
     --numeric) need_value "$1" "$#"; NUMERIC_NOUNS="$NUMERIC_NOUNS
 $2"; shift 2 ;;
+    --budget-file) need_value "$1" "$#"; BUDGET_FILE_ARGS="$BUDGET_FILE_ARGS
+$2"; shift 2 ;;
     -h|--help)
-      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -136,6 +147,76 @@ ALLOW_COUNT=0
 if [ -f .foundry-audit-allow ]; then
   grep -v '^[[:space:]]*#' .foundry-audit-allow | grep -v '^[[:space:]]*$' > "$ALLOW" 2>/dev/null || true
   ALLOW_COUNT=$(wc -l < "$ALLOW" | tr -d ' ')
+fi
+
+# ---------------------------------------------------------------------------
+# The auto-loaded subset of the document set
+# ---------------------------------------------------------------------------
+# Two checks below care not about "this project's documents" but specifically
+# about "the documents injected into every session before the user types" —
+# check 9 (absolute rules living where the session never sees them) and
+# check 11 (the size of that injection). Both need the same answer, so it is
+# derived once, here, from what actually loads rather than from a guess.
+#
+# Two things load automatically, and conflating them is how a project with a
+# non-default loader gets measured wrong:
+#   1. CLAUDE.md — read by Claude Code itself as project instructions. Present
+#      whether or not any hook exists. This is why the "no hook" branch below
+#      is NOT an N/A: with no loader at all, CLAUDE.md is still injected, and
+#      a 300KB CLAUDE.md costs exactly what a 300KB three-file set costs.
+#   2. Whatever a SessionStart doc-loader hook cats into additionalContext.
+#      Foundry writes that as a bash array literal, and the file list is
+#      per-project (templates/settings.hooks.json.template renders
+#      {{DOC_FILES_QUOTED}}), so the three-file default must not be assumed.
+#
+# Parsed textually, not with jq: this script has no jq dependency, unlike the
+# hooks. The array lives inside a JSON string, so its quotes arrive escaped —
+# DOC_FILES_ARR=(\"CLAUDE.md\" \"DECISIONS.md\") — hence the backslash strip.
+LOADED_F="$WORK/loaded.txt"
+: > "$LOADED_F"
+# Where the answer came from, so the check can say so: "--budget-file", a
+# settings path, "default" (CLAUDE.md only, no loader found), or "unparseable".
+LOADED_SRC="default"
+
+if [ -n "$(printf '%s' "$BUDGET_FILE_ARGS" | tr -d '[:space:]')" ]; then
+  # Explicit override wins outright. This is the escape hatch for a project
+  # whose loader this script cannot read: without it, the unparseable branch
+  # below would be a finding the user has no way to clear, and a permanent
+  # unclearable finding is the noise this script's precision rules exist to
+  # avoid. A named file that doesn't exist is not an error here (unlike
+  # --doc): the loader itself tolerates a missing file, contributing 0 bytes.
+  printf '%s\n' "$BUDGET_FILE_ARGS" | grep -v '^[[:space:]]*$' > "$LOADED_F"
+  LOADED_SRC="--budget-file"
+else
+  for SETTINGS in .claude/settings.json .claude/settings.local.json; do
+    [ -f "$SETTINGS" ] || continue
+    grep -o 'DOC_FILES_ARR=([^)]*)' "$SETTINGS" 2>/dev/null | head -1 | tr -d '\\' \
+      | grep -oE '"[^"]+"' | tr -d '"' > "$LOADED_F.try" 2>/dev/null || : > "$LOADED_F.try"
+    if [ -s "$LOADED_F.try" ]; then
+      cp "$LOADED_F.try" "$LOADED_F"
+      LOADED_SRC="$SETTINGS"
+      break
+    fi
+    # No parseable array — but does something here look like a doc loader
+    # anyway? A hand-rolled SessionStart hook that cats documents is invisible
+    # to the pattern above, and reporting "no loader" for it would be the
+    # absence-of-a-trigger-treated-as-safe failure this repo keeps finding.
+    # Narrow signal on purpose: a hook command that both declares itself a
+    # SessionStart hook and names a Markdown file. A PreToolUse command that
+    # happens to mention a .md does not match.
+    if grep '"command"' "$SETTINGS" 2>/dev/null | grep -F 'SessionStart' \
+         | grep -qE '[A-Za-z0-9_.-]+\.md' 2>/dev/null; then
+      LOADED_SRC="unparseable"
+      break
+    fi
+  done
+  rm -f "$LOADED_F.try"
+fi
+
+# CLAUDE.md is always in the set when it exists, regardless of hooks (see (1)
+# above). Prepend rather than append so the breakdown reads in load order.
+if [ -f CLAUDE.md ] && ! grep -qxF CLAUDE.md "$LOADED_F"; then
+  { printf 'CLAUDE.md\n'; cat "$LOADED_F"; } > "$LOADED_F.new" && mv "$LOADED_F.new" "$LOADED_F"
 fi
 
 report() { printf '[%s] %s\n' "$1" "$2"; }
@@ -521,16 +602,19 @@ fi
 # rules are "the same rule" is not a mechanical question, and this check does
 # not pretend otherwise — it is reported as INFO, never FAIL.
 if [ -f CLAUDE.md ]; then
-  AUTOLOADED="CLAUDE.md DECISIONS.md SESSIONS.md"
+  # The excluded set is the derived auto-loaded one, not a hardcoded three
+  # filenames: in a project whose loader names a different set (or none), the
+  # hardcoded list silently excluded documents the session never actually
+  # sees, which is precisely the gap this check exists to surface.
   CAND=0
   while IFS= read -r f; do
     [ -z "$f" ] && continue
-    case " $AUTOLOADED " in *" $f "*) continue ;; esac
+    grep -qxF "$f" "$LOADED_F" && continue
     N=$(grep -cE '^[[:space:]]*[-*][[:space:]].*(\bnever\b|\bmust never\b|\bunder no circumstances\b|\bnon-negotiable\b)' "$f" 2>/dev/null || true)
     [ -z "$N" ] && N=0
     if [ "$N" -gt 0 ]; then
       CAND=$((CAND + N))
-      info "$f contains $N absolute-sounding rule line(s) ('never' / 'non-negotiable'). $f is not auto-loaded by the SessionStart hook. Compare each against CLAUDE.md's Rules section: anything genuinely absolute belongs restated there. (Judgment call — this check surfaces candidates, it does not decide.)"
+      info "$f contains $N absolute-sounding rule line(s) ('never' / 'non-negotiable'). $f is not in this project's auto-loaded set (source: $LOADED_SRC). Compare each against CLAUDE.md's Rules section: anything genuinely absolute belongs restated there. (Judgment call — this check surfaces candidates, it does not decide.)"
     fi
   done < "$DOCS_F"
   if [ "$CAND" -eq 0 ]; then
@@ -567,6 +651,114 @@ if [ -n "$(printf '%s' "$NUMERIC_NOUNS" | tr -d '[:space:]')" ]; then
       report PASS "numeric agreement '$noun' — consistent ($VALS)"
     fi
   done < "$WORK/nouns.txt"
+fi
+
+# ---------------------------------------------------------------------------
+# 11. Auto-load budget (size of the injected document set)
+# ---------------------------------------------------------------------------
+# The one check here that measures cost rather than correctness, and it exists
+# because this repo demonstrated the failure on itself: the auto-loaded set
+# grew from 16,874 bytes at first commit to 303,867 (~76,000 tokens, ~38% of a
+# 200k window) over ~20 sessions, unnoticed, because every individual session's
+# addition was small and reasonable. Nothing was ever wrong with those files —
+# no dangling reference, no stale path — so every other check in this script
+# stayed green the whole way up. Growth is invisible to correctness checks by
+# construction; it needs its own.
+#
+# THE THRESHOLDS, and why these numbers rather than round ones. Two
+# independent derivations, neither adjusted to agree with the other:
+#
+#   (A) Context budget. The injection is pure overhead — spent before the user
+#       types. 20% of a 200k window is the point where overhead stops being
+#       background and starts competing with the working set, which is 40,000
+#       tokens. At this repo's own measured ratio (303,867 bytes ≈ 76,000
+#       tokens = 4.0 bytes/token for prose Markdown), that is 160,000 bytes.
+#
+#   (B) Lead time. A threshold is only useful if it fires while the fix is
+#       still one cheap session rather than an emergency. Measured across this
+#       repo's full history (51 commits, 2026-06-28 → 2026-08-18): +294,148
+#       bytes total, median non-zero per-commit delta ~5,900 bytes, ~14,700
+#       bytes per session. From the post-archive 84,138-byte baseline, a
+#       160,000-byte trip point leaves ~76,000 bytes of headroom — roughly
+#       five average sessions, or ~13 doc-touching commits. Late enough not to
+#       fire on the session that just archived, early enough that the fix is a
+#       routine verbatim move.
+#
+# Both land on ~160KB. That convergence is the defence; either number alone
+# would be one assumption wearing a decimal point.
+BUDGET_INFO_BYTES=160000
+# The hard ceiling is not derived at all — it is the level this repo actually
+# reached and a recorded decision actually rejected (303,867 bytes, DECISIONS.md
+# 2026-08-18). Arriving back here is not a judgment call about what is too big;
+# it is evidence the archive discipline did not hold.
+BUDGET_FAIL_BYTES=304000
+BYTES_PER_TOKEN=4
+
+LOADED_N=$(grep -cv '^[[:space:]]*$' "$LOADED_F" 2>/dev/null || true)
+[ -z "$LOADED_N" ] && LOADED_N=0
+
+if [ "$LOADED_SRC" = "unparseable" ]; then
+  # Negative branch, written out rather than assumed: something declares itself
+  # a SessionStart hook and names a Markdown file, so documents ARE being
+  # injected, but which ones cannot be determined. That makes the total
+  # unknown, not fine — SKIP, which this script counts as a finding.
+  report SKIP "auto-load budget — a SessionStart hook appears to inject documents, but its file list could not be parsed"
+  fail "auto-load budget could not be measured: a SessionStart hook command in .claude/settings.json names a Markdown file but no parseable 'DOC_FILES_ARR=(...)' file list. The injected size is therefore unknown, which is not the same as acceptable. Name the loaded files explicitly with --budget-file (repeatable) to make this check run."
+elif [ "$LOADED_N" -eq 0 ]; then
+  # Reachable only with no CLAUDE.md and no loader. Genuinely N/A: nothing is
+  # injected, so there is no injection to size.
+  report "N/A " "auto-load budget — no CLAUDE.md and no SessionStart doc-loader, so nothing is auto-injected"
+else
+  BSORT="$WORK/budget.txt"
+  : > "$BSORT"
+  BUDGET_TOTAL=0
+  BUDGET_MISSING=""
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if [ -f "$f" ]; then
+      FSZ=$(wc -c < "$f" | tr -d ' ')
+      BUDGET_TOTAL=$((BUDGET_TOTAL + FSZ))
+      printf '%s\t%s\n' "$FSZ" "$f" >> "$BSORT"
+    else
+      # The loader guards each file with [ -f "$f" ], so a named-but-absent
+      # file contributes nothing. Named anyway, because a loader pointing at a
+      # file that does not exist is worth seeing.
+      BUDGET_MISSING="$BUDGET_MISSING $f"
+    fi
+  done < "$LOADED_F"
+
+  # Per-file breakdown, largest first, printed on every outcome including PASS.
+  # The threshold is on the TOTAL — that is what gets injected, and the files
+  # trade off against each other, so a per-file limit would be satisfiable
+  # while the total stayed unacceptable (exactly what this repo's own archive
+  # pass did: it moved bulk between files as well as out of them). But a bare
+  # total is not actionable, because the fix is always "archive the largest
+  # contributor" and the total does not say which that is. One line buys both,
+  # and on PASS the percentage makes growth legible run-over-run instead of
+  # only at the moment it trips.
+  BUDGET_BREAK=$(sort -rn "$BSORT" | awk -F'\t' '{printf "%s%s %.1fKB", (NR>1 ? ", " : ""), $2, $1/1024}')
+  [ -n "$BUDGET_MISSING" ] && BUDGET_BREAK="$BUDGET_BREAK; named but absent:$BUDGET_MISSING"
+  BUDGET_TOK=$((BUDGET_TOTAL / BYTES_PER_TOKEN))
+  BUDGET_PCT=$((BUDGET_TOTAL * 100 / BUDGET_INFO_BYTES))
+  BUDGET_WHERE="source: $LOADED_SRC"
+
+  if [ "$BUDGET_TOTAL" -ge "$BUDGET_FAIL_BYTES" ]; then
+    report FAIL "auto-load budget — $BUDGET_TOTAL B (~$BUDGET_TOK tokens) at or past the $BUDGET_FAIL_BYTES B hard ceiling"
+    fail "auto-loaded document set is $BUDGET_TOTAL bytes (~$BUDGET_TOK tokens), at or past the $BUDGET_FAIL_BYTES B ceiling — the size a recorded decision already rejected as unworkable. Breakdown ($BUDGET_WHERE): $BUDGET_BREAK. Archive the largest contributor verbatim (see 'Where the history lives' in CLAUDE.md for the pattern) and leave a pointer to the archive; do not summarise during the move, and do not raise the ceiling to clear this finding."
+  elif [ "$BUDGET_TOTAL" -ge "$BUDGET_INFO_BYTES" ]; then
+    # INFO, not FAIL, and the distinction is deliberate. Crossing the budget is
+    # not a defect: every reference still resolves and nothing is stale. It is
+    # work to schedule. A FAIL here would exit 1 on every run between "budget
+    # crossed" and "someone found a session for the archive pass" — an
+    # unclearable recurring finding, which is the same noise the path check
+    # trades recall to avoid. The ceiling above is where it stops being a
+    # judgment call. (Same two-tier shape as 'Enforced at:': mechanical FAIL
+    # for a missing path, INFO for a locus nothing can check.)
+    report INFO "auto-load budget — $BUDGET_TOTAL B (~$BUDGET_TOK tokens), $BUDGET_PCT% of the $BUDGET_INFO_BYTES B budget: an archive pass is due"
+    info "auto-loaded document set is $BUDGET_TOTAL bytes (~$BUDGET_TOK tokens), $BUDGET_PCT% of the $BUDGET_INFO_BYTES B budget — over, but below the $BUDGET_FAIL_BYTES B ceiling. Breakdown ($BUDGET_WHERE): $BUDGET_BREAK. An archive pass on the largest contributor is due; this is scheduled work, not a defect, which is why it does not affect the exit code. Left unattended it becomes one — the ceiling is a FAIL."
+  else
+    report PASS "auto-load budget — $BUDGET_TOTAL B (~$BUDGET_TOK tokens), $BUDGET_PCT% of the $BUDGET_INFO_BYTES B budget ($BUDGET_WHERE): $BUDGET_BREAK"
+  fi
 fi
 
 # ---------------------------------------------------------------------------

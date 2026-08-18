@@ -33,7 +33,7 @@ Neither substitutes for the other. Run `qc-review` before shipping risky code; r
 bash ~/.claude/skills/foundry-audit/audit.sh
 ```
 
-Run from the project root. If the skill isn't installed via `install.sh`, it's at `skills/foundry-audit/audit.sh` in the Foundry checkout. Options: `--root DIR` to audit elsewhere, `--doc PATH` to add a file outside the default set (repeatable), `--numeric NOUN` to cross-check a counted claim (see Step 3).
+Run from the project root. If the skill isn't installed via `install.sh`, it's at `skills/foundry-audit/audit.sh` in the Foundry checkout. Options: `--root DIR` to audit elsewhere, `--doc PATH` to add a file outside the default set (repeatable), `--numeric NOUN` to cross-check a counted claim (see Step 3), `--budget-file PATH` to state the auto-loaded set explicitly when this script can't parse the project's loader (repeatable — see the auto-load budget section below).
 
 Default document set: `CLAUDE.md`, `DECISIONS.md`, `SESSIONS.md`, `README.md`, `STACK.md`, `USER_GUIDE.md`, `CONTRIBUTING.md` (those that exist), plus every `.md` under `docs/`. Deliberately not "every Markdown file in the repo" — a vendored README or a skill's own SKILL.md is not this project's document set, and sweeping them in produces noise that teaches a reader to ignore the output.
 
@@ -48,6 +48,37 @@ Five states, and the third is the one that exists because of this repo's most-re
 - **INFO** — surfaced for judgment, never a defect, never affects the exit code.
 
 Exit codes: `0` clean, `1` findings, `2` harness error (no documents found, or `--doc` named a file that isn't there). A harness error is explicitly *not* a clean result and says so.
+
+## The auto-load budget check, and where its numbers come from
+
+One check measures cost rather than correctness, so it needs its own explanation: the size of the document set injected into every session before the user types anything.
+
+**Why it exists.** Foundry's own repo grew its auto-loaded set from 16,874 bytes at first commit to 303,867 (~76,000 tokens, ~38% of a 200k context window) over roughly twenty sessions, and every other check in this script stayed green the entire way, because nothing was ever *wrong* with those files — no dangling reference, no stale path, no bad fence. Each session's addition was small and reasonable. Growth is invisible to correctness checks by construction, so it needs a check of its own. That is not a hypothetical failure mode; it is this repo's own history, and the cleanup was a dedicated session.
+
+**What counts as auto-loaded**, derived rather than assumed — a project with a non-default loader would otherwise be measured against the wrong set:
+
+- `CLAUDE.md`, always, when it exists. Claude Code reads it as project instructions whether or not any hook exists. This is why "no SessionStart hook" is not an N/A here: a 300KB CLAUDE.md costs a session exactly what a 300KB three-file set costs.
+- Plus whatever a SessionStart doc-loader hook injects, read out of `.claude/settings.json` (then `.claude/settings.local.json`) by parsing the `DOC_FILES_ARR=(...)` array Foundry's hook template renders. The file list is per-project (`templates/settings.hooks.json.template` renders `{{DOC_FILES_QUOTED}}`), so the three-file default is never assumed. Parsed textually — this script has no `jq` dependency, unlike the hooks.
+- A file the loader names but which doesn't exist contributes zero bytes, matching the hook's own `[ -f "$f" ]` guard, but is still named in the breakdown.
+
+**The negative branch, which is the interesting one.** If a SessionStart hook command both declares itself a SessionStart hook and names a Markdown file, but no `DOC_FILES_ARR=` is parseable, something is injecting documents and this script cannot tell what. That reports **SKIP** — a finding — because the injected size is *unknown*, which is not the same as acceptable. `--budget-file PATH` (repeatable) states the set explicitly and clears it, so the SKIP can never become a permanent unclearable finding. Only a project with no `CLAUDE.md` *and* no loader reports N/A, and there the N/A is true: nothing is injected.
+
+**The thresholds, and why they aren't round numbers picked confidently.** Two independent derivations, neither adjusted to agree with the other:
+
+| | Derivation | Result |
+|---|---|---|
+| **A** | Context budget. The injection is pure overhead, spent before the user types. 20% of a 200k window is where overhead stops being background and starts competing with the working set — 40,000 tokens. At this repo's measured ratio for prose Markdown (303,867 bytes ≈ 76,000 tokens = 4.0 bytes/token), that is **160,000 bytes**. | 160,000 B |
+| **B** | Lead time. A threshold is only useful if it fires while the fix is still one cheap session. Measured across this repo's whole history (51 commits, 2026-06-28 → 2026-08-18): +294,148 bytes total, median non-zero per-commit delta ~5,900 B, ~14,700 B per session. From the post-archive 84,138-byte baseline, a 160,000-byte trip point leaves ~76,000 B of headroom — about five average sessions. | ~160,000 B |
+
+Both land in the same place, and that convergence is the defence. Either number alone would be one assumption wearing a decimal point.
+
+The **hard ceiling, 304,000 bytes, is not derived at all** — it is the level this repo actually reached and a recorded decision actually rejected (303,867 bytes; `DECISIONS.md`, 2026-08-18). Arriving back there is not a judgment call about what's too big; it is evidence the archive discipline didn't hold.
+
+**INFO at the budget, FAIL at the ceiling**, and the split is deliberate. Crossing the budget is not a defect — every reference still resolves, nothing is stale; it is work to schedule. A FAIL there would exit 1 on every run between "budget crossed" and "someone found a session for the archive pass": an unclearable recurring finding, which is the same noise the path check trades recall away to avoid. The ceiling is where it stops being a judgment call. Same two-tier shape the `Enforced at:` check already uses — mechanical FAIL for a missing path, INFO for a locus nothing can check.
+
+**The threshold is on the total; the breakdown is printed on every outcome, including PASS.** The total is what gets injected, and the files trade off against each other — a per-file limit would be satisfiable while the total stayed unacceptable, which is exactly what this repo's own archive pass did when it moved bulk *between* files as well as out of them. But a bare total isn't actionable, because the fix is always "archive the largest contributor" and the total doesn't say which that is. One line buys both, and the percentage on PASS makes growth legible run-over-run instead of only at the moment it trips.
+
+**What this check does not do:** decide what the project does about it. That half is `foundry-repo-hygiene` Part 2's `foundry.docBudgetDiscipline` entry — prose judgment, one-time question, recorded in `.claude/settings.json`, with its negative branches written out. It has no test harness and says so.
 
 ## Step 3 — the checks this script does NOT make mechanical
 
@@ -98,6 +129,13 @@ Every row marked mechanical has a mutation case in `tests/run_fixtures.sh` — a
 | Every doc reachable from CLAUDE.md/README.md | mechanical, mutation-tested |
 | No entry point to walk from (empty-input guard) | mechanical, mutation-tested |
 | Numeric claims agree for a given noun | comparison mechanical and mutation-tested; noun choice is judgment |
+| Auto-loaded doc set over its size budget (INFO) | mechanical, mutation-tested |
+| Auto-loaded doc set past the hard ceiling (FAIL) | mechanical, mutation-tested |
+| An oversized doc *outside* the loaded set stays quiet | mechanical, mutation-tested (precision guard) |
+| A loader whose file list can't be parsed (SKIP, escapable via `--budget-file`) | mechanical, mutation-tested (both the SKIP and the escape) |
+| A loader naming a file that doesn't exist | mechanical, mutation-tested |
+| Absolute-rule check reads the *derived* loaded set, not three hardcoded names | mechanical, mutation-tested (matched pair: surfaced when omitted, quiet when loaded) |
+| What the project *does* when the budget line goes over | **not here** — `foundry-repo-hygiene` Part 2, prose judgment, no harness |
 | Absolute rules present in the auto-loaded file | judgment-assisted, **not** mutation-testable — surfaces candidates only |
 | Decisions with no enforcement locus | informational count; whether an orphan matters is judgment |
 | Standards bullets echoed somewhere actionable | **not implemented** — see Step 3 |
@@ -115,6 +153,8 @@ The evidence that matters most, though, is what it found on real prose rather th
 - **Reference forms are fixed.** A decision reference is recognized as an ISO date on a line mentioning `DECISIONS.md`/"decision log", or "the `<date>` entry/entries/decision". A reference phrased another way is invisible to the check. This is a pattern list, and pattern lists are permanently incomplete — the same structural point `foundry-security` makes about secrets filenames. Probing with new phrasings is worth more than re-running the existing suite.
 - **It audits documents, not truth.** It can confirm that `DECISIONS.md`'s 2026-08-17 entry exists; it cannot confirm the entry describes what actually happened. A decision whose stated enforcement locus exists but doesn't enforce anything passes.
 - **A path containing a space is audited, but cannot be referenced.** The file itself is scanned normally (an earlier version word-split it into two nonexistent documents and invented findings — fixed and regression-tested). But the patterns that recognise a reference don't span spaces, so `docs/my notes.md` will always report as unreachable even when something links to it. Renaming is the practical answer; the alternative is a reference pattern loose enough to swallow ordinary prose.
+- **The token figure is an approximation, and the byte figure isn't.** The budget check counts bytes exactly and converts at a flat 4.0 bytes/token measured on this repo's own prose Markdown. A doc set heavy in code blocks, tables, or non-Latin text will tokenize differently, so treat the `~N tokens` reading as an order-of-magnitude aid and the byte total as the real number. Adding a tokenizer dependency to buy accuracy here would cost more than the imprecision does.
+- **The loaded-set parse recognises Foundry's loader shape, not every possible one.** It reads a `DOC_FILES_ARR=(...)` array out of `.claude/settings.json`. A hand-rolled loader is detected as *present but unparseable* (a SKIP, cleared with `--budget-file`) only when its command both declares itself a SessionStart hook and names a `.md` file. A loader that injects documents some other way — reading filenames from another file, globbing a directory — will read as "no loader", and the budget then covers `CLAUDE.md` alone while more is actually being injected. Pattern lists are permanently incomplete; this is the same structural limit as the reference forms above.
 - **Bash 3.2 and BSD tools**, matching the rest of Foundry, plus `find`/`awk`/`sed`. No `jq` dependency, unlike the hooks.
 
 ## When to proactively offer (a suggestion, never automatic)
