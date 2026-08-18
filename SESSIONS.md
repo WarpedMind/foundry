@@ -18,6 +18,8 @@ Built the mechanism the previous session's one-time cut left missing, closing `P
 
 **Also recorded four refusals** — no second "approaching budget" threshold, no tokenizer dependency, no Hook 3 periodic nudge or auto-archive, and no budget check inside the SessionStart hook itself — because each is cheap enough to look like thoroughness to a later session.
 
+**Four drift points the change itself created, found by checking rather than assumed absent.** `templates/CLAUDE.md.template`'s archive rule — which the previous session deliberately kept verbatim-identical to this repo's copy so the two could not drift — said "when these docs do grow large enough to archive" and named no mechanism for knowing when that is, which is exactly the gap item 4 filled; the budget-check sentence was added there too. And three places enumerate the audit's checks outside its own SKILL.md (`skills/foundry-help/SKILL.md`, `skills/foundry-init/SKILL.md` Step 3, `USER_GUIDE.md`), each of which would have shipped an incomplete list. None of these are caught by `audit.sh` (it doesn't scan `skills/`, and an incomplete prose list isn't a structural defect) — found by grepping for who else describes this check, which is the habit that matters here rather than the tool.
+
 **Verification categories, kept separate on purpose.** Part (a) is mechanical and mutation-tested, including the three neuter experiments proving the harness can go red. Part (b) is prose judgment with no artifact to inject a defect into; the green suite says nothing about it. `bash skills/foundry-audit/audit.sh` and `bash tests/run_fixtures.sh` both clean.
 
 ## 2026-08-18 (Doc-budget handoff items 1-3 — `PROPOSALS/2026-08-18-doc-budget-handoff.md`)
