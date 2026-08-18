@@ -11,6 +11,15 @@ specific bar (per-skill wording with no repeated sentences, every check mutation
 Either use a stronger model for item 4, or make it its own session. Do not let item 4's
 difficulty push items 1-3 to a bigger model than they need; they are genuinely mechanical.
 
+**Run items 1-3 as one Sonnet session and item 4 as a separate one.** They share no state
+beyond the files being smaller, and splitting them is what keeps the cheap work cheap.
+
+Every boundary command below was executed against the real files on 2026-08-18 and its
+output recorded inline, so you are re-running verified commands rather than trusting
+plausible ones. **Never read these files wholesale to move them** — extract by line range.
+That is what keeps this task inexpensive regardless of model: ~300KB moves through `sed`,
+not through context.
+
 ---
 
 ## Read first
@@ -63,6 +72,70 @@ named in it is simply never loaded. Confirm this yourself with
 
 ---
 
+## Archive architecture — decided, do not redesign
+
+Settled in `DECISIONS.md` (2026-08-18, top entry). Summary so you don't have to re-derive it:
+
+- **No separate archive-index file.** A short pointer block inside CLAUDE.md *is* the index,
+  because CLAUDE.md is the only thing guaranteed to load. An index that isn't auto-loaded
+  needs its own pointer, which then has to describe the contents to be useful — at which
+  point it is the pointer, one hop later, plus another file to keep in sync.
+- **Nothing is ever summarised during a move.** Moves are verbatim. The only lossy step in
+  this whole handoff is the small fresh `Current status` rewrite in item 1, and the full
+  original sits in the archive beside it.
+- **Archives are never auto-loaded and are read only on demand.** The rule governing that is
+  already in `templates/CLAUDE.md.template`; item 1b adds the same rule to Foundry's own
+  CLAUDE.md.
+- **Order of operations matters mechanically:** create the archive file *first*, then add
+  the pointer that references it. `audit.sh`'s file-path check **FAILs** on a backticked
+  repo-rooted path that doesn't exist (verified — a `docs/`-prefixed name that is missing is
+  a hard failure, not a warning). Writing a pointer to a not-yet-created file breaks the
+  audit.
+
+### Naming (decided — use exactly these)
+
+| Archive | Holds |
+|---|---|
+| `SESSIONS_ARCHIVE.md` | older SESSIONS.md entries (item 2) |
+| `DECISIONS_ARCHIVE.md` | older DECISIONS.md entries (item 3) |
+| `PROJECT_HISTORY.md` | CLAUDE.md's old `Current status` log (item 1) |
+
+Root level, bare names, matching their parents. Not `docs/` — root keeps them beside the
+files they came from, and a bare name degrades more gracefully in the audit's path check if
+something is ever mistyped.
+
+### The literal pointer block (paste into CLAUDE.md, adjusting only the ranges)
+
+Place it as its own section immediately after `Current status`. Fill the ranges from what
+you actually moved — do not copy the example dates without checking them.
+
+```markdown
+## Where the history lives
+
+Older material is archived out of this file to keep the SessionStart auto-load small. It is
+**not** loaded into sessions and should not be opened unless the task genuinely needs it
+(see the archive rule under Rules / Never do).
+
+- `PROJECT_HISTORY.md` — the full per-session narrative log formerly in `Current status`,
+  Sessions 4-20 (2026-06-28 → 2026-08-18). Open it to reconstruct how a mechanism reached
+  its current shape, or what an earlier review round actually found.
+- `SESSIONS_ARCHIVE.md` — session entries older than the newest two. Open it when tracing
+  when and why something changed.
+- `DECISIONS_ARCHIVE.md` — decision entries from 2026-06. Open it when a current rule looks
+  arbitrary and you need the reasoning that produced it, or to check whether an approach was
+  already tried and rejected.
+
+Everything here is also in git history; these files exist so it is findable without knowing
+to go looking.
+```
+
+### The Rules addition (paste into CLAUDE.md's `Rules / Never do`, above `{{ADDITIONAL_RULES}}`'s position)
+
+Use the same text now in `templates/CLAUDE.md.template` — copy it from there verbatim so the
+two cannot drift, rather than retyping it from this document.
+
+---
+
 ## Item 1 — CLAUDE.md's `Current status` (do this first)
 
 **Why first:** biggest single win, lowest risk, and it is the only one of the three that
@@ -72,21 +145,38 @@ per-session narrative log covering Sessions 4-20. `docs/HOWS_AND_WHYS.md` says C
 The content is **already duplicated in SESSIONS.md**, which is the file whose actual job
 it is — so this is largely removing a second copy, not discarding a record.
 
-Do it in two mechanical steps, not as one synthesis:
+Do it in two mechanical steps, not as one synthesis. **Do not read the section into context
+to move it** — extract by line range, which is why this is cheap on any model.
 
-1. **Move losslessly.** Append the entire existing `Current status` body verbatim to a new
-   `docs/PROJECT_HISTORY.md` (or into `SESSIONS_ARCHIVE.md` from item 2 if you do that
-   first and it fits cleanly — decide once and be consistent). Verbatim means verbatim; do
-   not summarize during the move, so the move itself can never lose anything.
-2. **Write a fresh, short `Current status`** — target 15-25 lines. It answers only "what is
-   true right now": what exists, what works, what is in flight. Not what happened, in what
-   order, in which session. End it with a pointer to the archive and to SESSIONS.md.
+These boundary commands were run against the real file on 2026-08-18 and produced
+`START=29`, `END=70`, body `46,331` bytes, with `## KNOWN DEBT` correctly following. Re-run
+them rather than hardcoding those numbers — the file will have changed:
 
-Framing it as move-then-write rather than "condense 20 sessions" is deliberate: the lossy
-step is bounded to a small fresh write with the full record still on disk beside it.
+```bash
+START=$(grep -n '^## Current status' CLAUDE.md | cut -d: -f1)
+END=$(awk -v s="$START" 'NR>s && /^## /{print NR-1; exit}' CLAUDE.md)
+sed -n "$((END+1))p" CLAUDE.md    # sanity: must print the NEXT '## ' heading
+```
 
-**Before/after check:** `wc -c CLAUDE.md` before and after, and confirm the archive file
-contains the old text (`grep` for a distinctive phrase from an early session).
+1. **Move verbatim, by line range.**
+   ```bash
+   { printf '# Project history\n\nThe per-session narrative log formerly in CLAUDE.md'\''s `Current status`.\nNot auto-loaded. See "Where the history lives" in CLAUDE.md.\n\n'
+     sed -n "$((START+1)),${END}p" CLAUDE.md; } > PROJECT_HISTORY.md
+   sed -i '' "$((START+1)),${END}d" CLAUDE.md    # macOS/BSD sed; GNU sed drops the ''
+   ```
+2. **Write a fresh `Current status`** under the now-empty heading — target 15-25 lines,
+   answering only "what is true right now": what exists, what works, what is in flight.
+   Not what happened, in what order, in which session. This is the one lossy step in the
+   whole handoff, and the full original is in `PROJECT_HISTORY.md` beside it.
+
+Then add the pointer block and the Rules line (both specified above), in that order.
+
+**Verify the move was lossless** — the point is that this is checkable, not asserted:
+```bash
+grep -c 'Session 4' PROJECT_HISTORY.md      # early content survived the move
+wc -c CLAUDE.md PROJECT_HISTORY.md          # CLAUDE.md down ~46KB
+bash skills/foundry-audit/audit.sh          # reachability + path checks must stay clean
+```
 
 ---
 
@@ -95,20 +185,50 @@ contains the old text (`grep` for a distinctive phrase from an early session).
 The plan already exists and has been deferred three times (Sessions 15, 16, and again
 since); it is not new design work. `SESSIONS_ARCHIVE.md`, newest-first like its parent.
 
-**Cutover rule — mechanical, decide once, state it in both files:** keep the newest three
-session entries inline in SESSIONS.md; everything older moves to `SESSIONS_ARCHIVE.md`
-verbatim. Put a one-line pointer at the point of truncation in SESSIONS.md, and a header
-in the archive saying what it is and which file supersedes it.
+**Cutover rule — decided, and measured rather than guessed: keep the newest TWO entries
+inline.** Three was the original instinct, but the 2026-08-18 entries are unusually long, so
+the numbers were checked: keeping two leaves 22,453 bytes inline and archives 137,283.
+Keeping three would leave roughly 70KB inline and defeat most of the point. State the rule
+in both files so the next session extends it rather than re-litigating it.
 
-Three is a starting value, not a law — if the newest three are unusually long (the
-2026-08-18 entries are very long), keep two and say so. What matters is that the rule is
-written down, so the next session extends it rather than re-litigating it.
+Entries begin with `^## 20`, so the boundary is mechanical (verified 2026-08-18: cut at
+line 84, the third entry):
+
+```bash
+CUT=$(grep -n '^## 20' SESSIONS.md | sed -n '3p' | cut -d: -f1)
+sed -n "${CUT}p" SESSIONS.md    # sanity: must be the 3rd '## 20' heading
+
+{ printf '# Session archive\n\nSESSIONS.md entries older than the newest two. Not auto-loaded.\nNewest-first, same as its parent. See "Where the history lives" in CLAUDE.md.\n\n'
+  tail -n +"$CUT" SESSIONS.md; } > SESSIONS_ARCHIVE.md
+head -n "$((CUT-1))" SESSIONS.md > /tmp/sessions.new && mv /tmp/sessions.new SESSIONS.md
+```
+
+Then append the truncation pointer to SESSIONS.md (a single line naming
+`SESSIONS_ARCHIVE.md` and the date range it starts from), and verify:
+
+```bash
+grep -c '^## 20' SESSIONS.md SESSIONS_ARCHIVE.md   # 2 inline, the rest archived
+tail -3 SESSIONS_ARCHIVE.md                        # oldest entry survived intact
+```
 
 ---
 
 ## Item 3 — DECISIONS.md archive split
 
-Same shape, smaller payoff: the 2026-06 entries are 42% of the file. `DECISIONS_ARCHIVE.md`.
+Same shape, smaller payoff: the 2026-06 entries are 42% of the file (verified 2026-08-18 —
+cut at line 195, leaving 51,660 inline and archiving 34,783). `DECISIONS_ARCHIVE.md`.
+
+```bash
+DCUT=$(grep -n '^## 2026-06' DECISIONS.md | head -1 | cut -d: -f1)
+sed -n "${DCUT}p" DECISIONS.md    # sanity: must be the first 2026-06 heading
+
+{ printf '# Decision archive\n\nDECISIONS.md entries from 2026-06. Not auto-loaded.\nNewest-first, same as its parent. See "Where the history lives" in CLAUDE.md.\n\n'
+  tail -n +"$DCUT" DECISIONS.md; } > DECISIONS_ARCHIVE.md
+head -n "$((DCUT-1))" DECISIONS.md > /tmp/decisions.new && mv /tmp/decisions.new DECISIONS.md
+```
+
+Note that DECISIONS.md stays the largest remaining file at ~52KB. That is deliberate — the
+2026-08 entries are recent and actively load-bearing. Don't archive further to hit a number.
 
 **One caution specific to this file.** Decision entries are cross-referenced by date from
 CLAUDE.md, SESSIONS.md and several SKILL.md files, and `foundry-audit` has a real check

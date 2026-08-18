@@ -1,6 +1,26 @@
 # Decision Log
 # Entries are ordered newest-to-oldest. Most recent decision is at the top.
 
+## 2026-08-18 — Archive architecture: the pointer is the index, and reading it is opt-in
+
+### A separate archive-index file was proposed and rejected — the pointer in the auto-loaded file does that job
+- The user's proposal was an archive plus an index describing it, with both excluded from auto-load. Adopted the archive and the exclusion; dropped the separate index in favour of a short pointer block (target 8-12 lines) living inside CLAUDE.md itself, which is auto-loaded.
+- **Why:** an index that isn't auto-loaded needs its own pointer to be findable, and that pointer must then say enough about what's in the index to justify opening it — at which point the pointer has become the index and the file is a redundant hop. It is also one more document to keep in sync, and cross-document drift is this repo's single most frequently rediscovered failure (README behind by three sessions; "108 sentences" stale in four files; a wrong decision date propagated through two). The always-loaded pointer costs roughly 200 tokens per session against the ~76,000 the archives remove, so the saving is not what's being optimised here — sync surface is.
+- **How to apply:** one pointer block in CLAUDE.md naming each archive and the range it covers. Add an index file only if the archive count grows past what a dozen lines can usefully describe, and treat that as a real threshold, not an eventual inevitability.
+- **Enforced at:** `templates/CLAUDE.md.template`'s Rules section (the archive rule); `PROPOSALS/2026-08-18-doc-budget-handoff.md` (the literal block for Foundry's own docs).
+
+### "Never lose history" is already satisfied by git; the actual risk is discoverability, and that's what the design targets
+- The stated requirement was that past information must never become unrecoverable. Checked rather than accepted: every version of these files is permanently recoverable from git, so loss-in-principle was never the live risk.
+- **Why:** the real failure is subtler and worth naming separately — a future session will not speculatively run `git log -p` against a file it has no reason to suspect ever contained something else. History that exists but is never surfaced is *functionally* lost while being technically intact, which is exactly why an unreferenced archive was judged equivalent to a deleted one in the rule text. So the design optimises for findability, not preservation: verbatim moves (never summarise during a move, so the lossy step is bounded to a small deliberate rewrite with the full record intact beside it), plus a pointer that is guaranteed to load.
+- **How to apply:** `foundry-audit`'s reachability check already fails on a doc unreachable from CLAUDE.md/README.md — that is the mechanical enforcement, and it must be re-run after any archive move rather than trusted to have held.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (reachability check); the archive Rule in `templates/CLAUDE.md.template`.
+
+### A knowledge-graph / "second brain" layer was considered for this and declined, with the condition under which it becomes right
+- Raised as a possible approach (graphify or similar). Declined for the per-project case.
+- **Why:** it addresses semantic retrieval across a large corpus. The corpus here is three files in one repository, where `grep` plus a dated pointer answers "why was X decided" in a single step with no infrastructure, no sync burden, and no stale-index failure mode. Adding a retrieval layer would introduce all three to solve a problem this scale does not have — and a stale semantic index is materially worse than no index, because it answers confidently.
+- **How to apply:** revisit at the cross-project level, where the value is synthesis across many repositories (surfacing that one lesson independently recurred in several unrelated projects) — something a per-project archive structurally cannot show. That tool is already on README.md's Roadmap; this decision is not an argument against it there.
+- **Enforced at:** not applicable — a decision not to build.
+
 ## 2026-08-18 — The remaining two follow-ups: conditional cross-skill offers, and a committed calibration fixture for `qc-review`
 
 ### An offer whose trigger the skill cannot observe does not ship, and the survivors are labeled judgment
