@@ -1,6 +1,28 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-08-17 (Evaluated and applied 3 of 4 external proposals; oneshot tightened; foundry-audit handed off)
+
+### What was built
+- Two proposal documents from an independent Claude instance that scaffolded and repeatedly audited a real separate project (`~/Projects/loomer`) were read, and every claim they made about Foundry's *current* behavior was independently re-verified against the actual files before acting on any of it (per the proposals' own explicit warning that they'd only been read once).
+- `templates/CLAUDE.md.template`: three additions to the Rules section — (1) absolute rules must be restated here, not left only in a file this one merely points at; (2) a conditional rule requiring an explicit security/privacy posture statement on work touching input capture, credentials, or personal data (kept conditional, not a mandatory section on every closing turn); (3) the existing verify-before-trust rule extended to cover self-authored checks — don't call a scan/test suite clean without evidence it can fail, mutation-test it where practical.
+- `templates/DECISIONS.md.template`: added an optional `Enforced at:` line to the entry-shape comment, so a decision can name where it gets checked without changing any existing entry's required shape.
+- `skills/oneshot/SKILL.md`: added a new framing section stating the front-loading/closing-question asymmetry explicitly; added a self-explanatory-option-text rule to Step 2; added a delegation-suppresses-closing-question rule (with accidental-submission recovery folded into the same guard) to Step 5. Deliberately did not add the proposal's recommendation-credibility or verification-evidence findings — the first already exists in this log's 2026-08-10 entry, the second went into the CLAUDE.md template instead since it isn't oneshot-specific.
+- `README.md`'s Roadmap: two new entries documenting both of the above.
+- Wrote `PROPOSALS/2026-08-17-foundry-audit-handoff.md` — a scoped, self-contained prompt for a fresh session to build proposal 4 (`foundry-audit`), including the context of what was decided this session and an explicit instruction to reevaluate for further Foundry-wide improvements once inside that work, the same way this session did for the other three proposals.
+
+### What was decided
+See DECISIONS.md (2026-08-17) for full entries with Why/Enforced-at. Summary: 3 of 4 doc-audit-and-security-gate proposals adopted (binding-rules-in-CLAUDE.md, conditional security/privacy declaration, optional decision-enforcement field); the fourth (`foundry-audit`, a new mechanical doc-consistency skill) deferred to its own session as too large to fold in here. From the companion oneshot proposal, 3 of 5 findings adopted directly into `oneshot`'s SKILL.md; 2 deliberately not duplicated, with a stated reason each.
+
+### What was verified
+- Every specific claim the proposals made about Foundry's current state was checked against the real files before acting: confirmed `templates/CLAUDE.md.template` had no "absolute rules belong here" rule yet, confirmed `templates/DECISIONS.md.template`'s entry-shape comment had no enforcement-locus field, confirmed the closing-turn convention (2026-08-11) had no mandatory security-declaration requirement, and confirmed the 2026-08-10 decision-log entry the proposal referenced (self-directed process criticism needs evidence) actually says what the proposal's own handoff prompt claimed it says.
+- `bash tests/run_fixtures.sh` re-run after all edits — all suites pass. Stated explicitly, not left implied: none of this session's changes touched a rendered command, regex, or hook payload — every edit is prose in a template or a skill file, so this confirms nothing broke, not that the new prose works as intended. Same limitation this repo has recorded for every prose-only change since Session 18.
+
+### What to do first next session
+- The template changes are unexercised: no project has been scaffolded since they were added, so none of the three new CLAUDE.md.template rules or the DECISIONS.md.template field have loaded into a real session yet. The next `/foundry-init` run is the real test — watch specifically whether the conditional security/privacy rule fires correctly (present when relevant, silent when not) and whether the absolute-rules rule reads as genuinely load-bearing rather than as another paragraph nobody reads.
+- If `PROPOSALS/2026-08-17-foundry-audit-handoff.md` gets picked up, that session's own closing pass should check whether anything from proposals 1-3 needs revisiting in light of what it learns building `foundry-audit` — the two are related (an audit skill is exactly the kind of "Enforced at" mechanism proposal 3 stopped short of building).
+- `PROPOSALS/2026-08-17-doc-audit-and-security-gate.md`, `PROPOSALS/2026-08-17-oneshot-improvements.md`, and `PROPOSALS/2026-08-17-SESSION-PROMPT.md` remain in the repo as a record of what was proposed and why — not deleted, since DECISIONS.md's entries reference them directly.
+
 ## 2026-08-11 (Closing-turn convention across all nine skills)
 
 ### What was built

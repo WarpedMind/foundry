@@ -9,6 +9,7 @@
 # - <what was decided>
 # - **Why:** <the reasoning — often a constraint, a past incident, or a tradeoff that was weighed>
 # - **How to apply:** <when/where this decision should govern future choices; note if it's narrow to one case or a standing rule>
+# - **Enforced at:** <optional — the specific work unit, file, checklist, or checkpoint where this decision becomes real and gets checked, if there is one yet. Omit if it isn't actionable anywhere concrete — a decision with nothing enforcing it is worth being able to notice later, not worth hiding by always filling this in.>
 #
 # Only log decisions that aren't obvious from reading the code/diff — e.g. "we
 # chose X over Y because Z" or "we verified this claim and it was wrong, here's
