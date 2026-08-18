@@ -1,6 +1,29 @@
 # Foundry Session Summary
 # Entries are ordered newest-to-oldest. Most recent session is at the top.
 
+## 2026-08-18 (Built items 2 and 3 from the foundry-audit follow-ups handoff)
+
+### Handoff verified before building on it
+Per this repo's own standing instruction (get burned once, verify every handoff going forward), checked the handoff's load-bearing claims against the actual files before starting: `skills/` does list `foundry-audit` (it does), the 2026-06-28 `qc-review` mechanical-auto-run rejection exists and says what the handoff claims (confirmed at DECISIONS.md line 143-146 — the two objections are exactly "wrong granularity, fires after every edit" and "cannot block, edit already happened"), and Hook 3's three-state design/reasoning is at DECISIONS.md's 2026-06-28 entry as cited (lines 268-269). Session 20's VSCode `additionalContext` finding is real, in SESSIONS.md's own Session 20 entry, not just asserted by the handoff. No wrong claims found this time — a clean verification pass is itself worth recording, not just the times something is caught.
+
+### What was built
+- **`skills/foundry-help/`** — a new standalone, on-demand skill (`/foundry-help`) explaining what Foundry is and which skill to reach for. States its own reasoning for being on-demand-only in its body (Hook 3 owns the SessionStart slot; VSCode doesn't render SessionStart `additionalContext` at all), rather than leaving that reasoning only in DECISIONS.md where a reader of the skill file wouldn't see it.
+- **Hook 5 (push-time `qc-review` offer)**, added to `skills/foundry-hooks/SKILL.md` and `templates/settings.qcreview-offer.json.template`. A `PreToolUse`/`Bash` hook matching `git push` (detection regex: `(^|[;&|])[[:space:]]*git[[:space:]]+push([[:space:]]|$)`, verified to require a real command position, not a substring match — stays silent on `git push` appearing only inside a quoted string or commit message). Fires a `systemMessage` (not `additionalContext` — chosen specifically because `systemMessage` reaches the user directly, and `additionalContext` risks the same invisibility Session 20 found) at most once per session, gated on a marker file (`.claude/.qc-review-offered-sessions`, gitignored) that only gets written when the offer actually fires — a non-risky push does not spend the session's one shot. Risk classification diffs the commits about to be pushed against `qc-review`'s own Step 2 risk keywords; when the diff itself can't be resolved (no upstream, detached HEAD), it defaults to firing rather than staying silent.
+- Optional, offered not forced into `foundry-init`'s default sequence — same treatment as Hook 4.
+- A cross-reference added to `skills/qc-review/SKILL.md`'s "Optional: mechanical auto-run" section, so the PostToolUse-vs-PreToolUse distinction is visible from either file, not just one.
+
+### What was decided
+See DECISIONS.md (2026-08-18, top entry) for the full Why/How to apply/Enforced at on both. Summary: `/foundry-help` is on-demand only because the automatic-banner alternative was already foreclosed by two separate existing findings, not because on-demand is a safer default in the abstract. Hook 5 offers rather than blocks even though `PreToolUse` *can* block, because a keyword-grep risk classifier isn't trustworthy enough to gate a push on; and undetermined risk defaults to firing, the same "absence of a trigger treated as unknown, not safe" choice this repo has now made explicitly enough times to be a standing Rule.
+
+### What was verified, and how — stated explicitly per category, not left implicit
+- **Mutation-tested (mechanical, re-runnable, in `tests/run_fixtures.sh`):** Hook 5's detection regex, once-per-session cap, and risk classifier. All three were deliberately broken one at a time (regex neutered, cap check inverted, `RISKY=0` branch flipped to `RISKY=1`) and confirmed to turn the matching fixture case(s) red, then restored to green — not just written and trusted. Six inline cases, extracted from the real rendered command in `templates/settings.qcreview-offer.json.template` via `jq`, exercised against real scratch git repos (a bare-repo-no-upstream case for the detection regex in isolation, a real remote+upstream case for the risk classifier). The template itself was round-tripped through `jq` and confirmed byte-identical to the raw script that was pipe-tested first, the same discipline Hooks 1/3/4 already use.
+- **Manually verified, no committed fixture (the JSON schema Hook 5 depends on):** `PreToolUse`'s `systemMessage`/`hookSpecificOutput.permissionDecision` output schema and stdin field names (`session_id`, `tool_input.command`) were checked against Claude Code's own current docs before being used, not assumed from memory or copied from the handoff (which didn't specify them) — this is exactly the class of external claim CLAUDE.md's Rules require verifying before writing code against it.
+- **Prose with no mechanical surface:** `/foundry-help`'s content and its "why on-demand" reasoning. Nothing to mutation-test; the check available is re-reading the two cited claims (Hook 3's design, Session 20's finding) against the actual files, done above, not a runtime reproduction.
+- `bash tests/run_fixtures.sh` and `bash skills/foundry-audit/audit.sh` both re-run clean after all doc updates.
+
+### Deferred, per the user's explicit instruction
+Items 1 (conditional tool-offers in closing questions, across all skills) and 4 (a committed `qc-review` calibration fixture) from the same handoff were left untouched — another session is taking those.
+
 ## 2026-08-17 (Built foundry-audit — proposal 4, the deferred one)
 
 ### What was built

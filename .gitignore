@@ -5,3 +5,4 @@
 __pycache__/
 node_modules/
 .claude/drift.log
+.claude/.qc-review-offered-sessions

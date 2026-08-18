@@ -189,6 +189,82 @@ cd "$REPO_ROOT"
 rm -rf "$STATUS_TMPDIR"
 echo "  done."
 
+# --- Hook 5: push-time qc-review offer ---
+# Unlike Hook 4, this hook's own logic (detection regex, once-per-session cap,
+# risk classification) is simple enough to exercise against the real extracted
+# command directly, in a real scratch git repo — no need for a parallel
+# mirrored-logic function.
+echo "== push-time qc-review offer (Hook 5, skills/foundry-hooks/SKILL.md) =="
+PUSH_CMD=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$REPO_ROOT/templates/settings.qcreview-offer.json.template")
+
+push_payload() {
+  # jq -n --arg handles quoting, so callers can pass cmd strings containing
+  # literal double quotes (e.g. echo "git push") without manual escaping.
+  jq -n --arg cmd "$1" --arg session "$2" '{tool_input:{command:$cmd},session_id:$session}'
+}
+
+check_push_fires() {
+  local label="$1" cmd="$2" session="$3"
+  local out
+  out=$(push_payload "$cmd" "$session" | bash -c "$PUSH_CMD")
+  if [ -z "$out" ]; then
+    echo "  FAIL: $label — expected an offer, got silence"
+    FAIL=1
+  fi
+}
+
+check_push_silent() {
+  local label="$1" cmd="$2" session="$3"
+  local out
+  out=$(push_payload "$cmd" "$session" | bash -c "$PUSH_CMD")
+  if [ -n "$out" ]; then
+    echo "  FAIL: $label — expected silence, got an offer"
+    FAIL=1
+  fi
+}
+
+# Detection-regex cases: a bare repo with no upstream, so risk classification
+# can't resolve and defaults to risky/fires — isolates the regex itself from
+# the risk-classification logic tested separately below.
+PUSH_TMPDIR=$(mktemp -d)
+cd "$PUSH_TMPDIR"
+git init -q
+git config user.email t@t.com; git config user.name t
+echo hello > a.txt; git add a.txt; git commit -qm init
+
+check_push_fires  "git push, no upstream (undetermined -> fires)"        'git push'                                    "hook5-s1"
+check_push_silent "git status is not a push"                              'git status'                                  "hook5-s2"
+check_push_silent "git push only inside a quoted string"                  'echo "git push"'                             "hook5-s3"
+check_push_fires  "chained cd && git push"                                'cd foo && git push origin main'              "hook5-s4"
+check_push_silent "git push mentioned inside a commit message string"     'git commit -m "note: run git push later"'    "hook5-s5"
+check_push_silent "second push, same session (once-per-session cap)"      'git push'                                    "hook5-s1"
+
+cd "$REPO_ROOT"
+rm -rf "$PUSH_TMPDIR"
+
+# Risk-classification cases: a repo with a real upstream, so the command's
+# `git diff --name-only '@{u}' HEAD` actually resolves and the keyword check
+# runs for real, rather than falling into the undetermined/fail-open branch.
+PUSH_REMOTE=$(mktemp -d); git init -q --bare "$PUSH_REMOTE"
+PUSH_LOCAL=$(mktemp -d); cd "$PUSH_LOCAL"
+git init -q -b main; git config user.email t@t.com; git config user.name t
+echo hello > readme.txt; git add readme.txt; git commit -qm init
+git remote add origin "$PUSH_REMOTE"; git push -q -u origin main
+
+echo more >> readme.txt; git add readme.txt; git commit -qm "non-risky readme tweak"
+check_push_silent "non-risky push does not spend the session cap"         "git push" "hook5-s10"
+
+mkdir -p src; echo 'SECRET_KEY=abc' > src/auth_config.py
+git add src/auth_config.py; git commit -qm "add auth config"
+check_push_fires  "risky push, same session, cap not yet spent"           "git push" "hook5-s10"
+
+echo x > src/another_secret.txt; git add src/another_secret.txt; git commit -qm "more secret stuff"
+check_push_silent "second risky push, same session (cap now spent)"       "git push" "hook5-s10"
+
+cd "$REPO_ROOT"
+rm -rf "$PUSH_LOCAL" "$PUSH_REMOTE"
+echo "  done."
+
 # --- Hook 1/3 merge guard: type-checked SessionStart merge ---
 # Pure jq logic (no shell-quoting/JSON-escaping involved), so cases are plain
 # jq invocations rather than full rendered-command extraction like Hooks 3/4.

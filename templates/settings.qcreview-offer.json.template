@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // \"\"'); if echo \"$CMD\" | grep -qE '(^|[;&|])[[:space:]]*git[[:space:]]+push([[:space:]]|$)'; then SESSION_ID=$(echo \"$INPUT\" | jq -r '.session_id // \"unknown\"'); mkdir -p .claude; OFFERED_FILE=\".claude/.qc-review-offered-sessions\"; touch \"$OFFERED_FILE\"; if ! grep -qF \"$SESSION_ID\" \"$OFFERED_FILE\" 2>/dev/null; then RISKY=1; DIFF_FILES=$(git diff --name-only '@{u}' HEAD 2>/dev/null); if [ -n \"$DIFF_FILES\" ]; then if echo \"$DIFF_FILES\" | grep -qiE '(^|/)\\.env|auth|session|password|credential|secret|token|payment|billing|migrat|\\.pem($|\\.)|\\.key($|\\.)|config.*\\.(ya?ml|json)|(^|/)\\.gitignore$|hook|settings\\.json'; then RISKY=1; else RISKY=0; fi; fi; if [ \"$RISKY\" = \"1\" ]; then echo \"$SESSION_ID\" >> \"$OFFERED_FILE\"; jq -n '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"allow\"},systemMessage:\"This push includes changes qc-review flags as worth checking (auth/secrets/config/hooks-adjacent paths, or the file list could not be determined). Consider running /qc-review before or after this push finishes -- it will not run automatically.\"}'; fi; fi; fi",
+            "statusMessage": "Checking whether to suggest /qc-review..."
+          }
+        ]
+      }
+    ]
+  }
+}
