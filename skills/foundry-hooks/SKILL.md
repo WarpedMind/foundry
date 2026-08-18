@@ -116,7 +116,7 @@ Detects when a Bash command's leading `cd` targets a directory outside this proj
 
 A `PreToolUse` hook matching `Bash`, scoped to `git push` invocations, that surfaces a one-time suggestion to run `/qc-review` before/after the push — never runs the review itself.
 
-**This is not the `PostToolUse` auto-run rejected on 2026-06-28 (see DECISIONS.md and `qc-review/SKILL.md`'s "Optional: mechanical auto-run via a hook" section) — the two are different mechanisms solving different problems, not the same idea revisited:**
+**This is not the `PostToolUse` auto-run rejected on 2026-06-28 (see `DECISIONS_ARCHIVE.md` and `qc-review/SKILL.md`'s "Optional: mechanical auto-run via a hook" section) — the two are different mechanisms solving different problems, not the same idea revisited:**
 - That rejection was about firing on every edit to a risky file — the wrong granularity (re-reviews the same half-finished function repeatedly during ordinary iterative work) and structurally unable to block (the edit has already happened by the time `PostToolUse` fires).
 - This hook fires once, at a real completion checkpoint (a push is the publish boundary, not mid-edit), and uses `PreToolUse` specifically because it *can* run before the tool call completes — though this hook still only offers, never blocks, so that capability is unused here on purpose (see the negative-branch discussion below for why blocking was rejected too).
 - If this distinction ever seems like it's being re-litigated, that's the sign to re-read this paragraph rather than re-deriving the argument from scratch.
