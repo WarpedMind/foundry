@@ -86,6 +86,17 @@ The **hard ceiling, 304,000 bytes, is not derived at all** — it is the level t
 
 **What this check does not do:** decide what the project does about it. That half is `foundry-repo-hygiene` Part 2's `foundry.docBudgetDiscipline` entry — prose judgment, one-time question, recorded in `.claude/settings.json`, with its negative branches written out. It has no test harness and says so.
 
+**What this skill does do with it, though, which it previously didn't.** After reading the budget line, handle `foundry.docBudgetDiscipline` in `.claude/settings.json` per that entry — don't leave it to the standalone freshness check. Every branch of the discipline used to be triggered only from item 7 of that check, which runs *on request*, so an ordinary `/foundry-audit` run — the one this file tells you to do before a push that touched documentation — printed the number and recorded nothing. The field then stayed unset indefinitely on exactly the projects that were auditing diligently, which is the absence-of-a-trigger failure in its quietest form. Concretely, per run:
+
+| Budget line | What to do with the field |
+|---|---|
+| PASS (a real number, under budget) | If unset, write `"not-applicable-yet"` — "measured, not relevant yet", which is distinguishable from silence. If already set, leave it. |
+| INFO or FAIL | If `"on"`, the archive pass is due work now. If unset, `"not-applicable-yet"` or `"not-measurable-yet"`, ask the one-time question (see that entry), record the answer, *then* act on it. Never read an absent answer as `"off"`. |
+| SKIP | Write `"not-measurable-yet"` and report the size as unknown, not fine. Don't write `"not-applicable-yet"` — nothing was measured. |
+| N/A | Nothing is injected; leave the field alone. |
+
+This is prose, like the discipline it serves, and gets the same disclaimer: nothing in `tests/run_fixtures.sh` covers it, and nothing can.
+
 ## Step 3 — the checks this script does NOT make mechanical
 
 Stated plainly so these don't borrow credibility from the checks that are actually tested. Three of the classes in the originating proposal are judgment, not regex:

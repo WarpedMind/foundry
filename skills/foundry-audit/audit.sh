@@ -219,6 +219,7 @@ else
   : > "$LOADED_F.try"
   LOADED_SRCS=""
   SS_HOOK_SEEN=0
+  SS_UNRESOLVED=0
   for SETTINGS in .claude/settings.json .claude/settings.local.json; do
     [ -f "$SETTINGS" ] || continue
     tr '\n' ' ' < "$SETTINGS" | awk -v events="$SS_EVENTS" '
@@ -271,14 +272,40 @@ else
     [ -z "$SS_UNKNOWN" ] && SS_UNKNOWN=0
     SS_HOOK_SEEN=$((SS_HOOK_SEEN + SS_UNKNOWN))
     BEFORE=$(wc -c < "$LOADED_F.try" | tr -d ' ')
-    grep -o 'DOC_FILES_ARR=([^)]*)' "$SSSEG" 2>/dev/null | tr -d '\\' \
-      | grep -oE '"[^"]+"' | tr -d '"' >> "$LOADED_F.try" 2>/dev/null || true
+    ARRAYS="$WORK/arrays.txt"
+    grep -o 'DOC_FILES_ARR=([^)]*)' "$SSSEG" 2>/dev/null | tr -d '\\' > "$ARRAYS" || : > "$ARRAYS"
+    grep -oE '"[^"]+"' "$ARRAYS" 2>/dev/null | tr -d '"' >> "$LOADED_F.try" 2>/dev/null || true
     AFTER=$(wc -c < "$LOADED_F.try" | tr -d ' ')
+    # Only quoted entries are extracted above, so anything else left in the
+    # array literal is a filename this parse did not resolve — most often an
+    # unquoted glob, `DOC_FILES_ARR=("CLAUDE.md" docs/*.md)`, which bash
+    # expands when the hook builds the array and which was previously dropped
+    # on the floor: not counted, and not even reported as "named but absent",
+    # so a 177KB injection read as PASS at 0%. Reproducing the expansion would
+    # mean claiming this script replicates the hook shell's globbing (nullglob,
+    # dotglob, the cwd at hook time), which is a much larger claim than the
+    # check needs. The set is simply not fully determined, so it is reported
+    # as unknown — the same answer, for the same reason, as an unaccounted-for
+    # hook below. A *quoted* entry containing a glob is not this case: the
+    # loader uses "${DOC_FILES_ARR[@]}", so it stays a literal path and lands
+    # in "named but absent", which is the honest answer for it.
+    UNRES=$(sed -e 's/^DOC_FILES_ARR=(//' -e 's/)$//' "$ARRAYS" 2>/dev/null \
+      | sed -e 's/"[^"]*"/ /g' | tr -d '[:space:]')
+    [ -n "$UNRES" ] && SS_UNRESOLVED=$((SS_UNRESOLVED + 1))
     if [ "$AFTER" -gt "$BEFORE" ]; then
       LOADED_SRCS="${LOADED_SRCS:+$LOADED_SRCS + }$SETTINGS"
     fi
   done
-  if [ -s "$LOADED_F.try" ]; then
+  # Checked before the measurable branch, not after: an unresolved entry sits
+  # alongside entries that did parse, so the partial set is non-empty and would
+  # otherwise be measured and reported as if it were the whole injection. The
+  # partial set is still copied out, because check 9 uses it to decide what the
+  # session does NOT see, and a partial exclusion list errs toward surfacing
+  # too many candidates — the safe direction for a judgment-only INFO.
+  if [ "$SS_UNRESOLVED" -gt 0 ]; then
+    cp "$LOADED_F.try" "$LOADED_F"
+    LOADED_SRC="unresolved"
+  elif [ -s "$LOADED_F.try" ]; then
     cp "$LOADED_F.try" "$LOADED_F"
     LOADED_SRC="$LOADED_SRCS"
   elif [ "$SS_HOOK_SEEN" -gt 0 ]; then
@@ -300,7 +327,7 @@ else
     # clearable finding beats a silent wrong number.
     LOADED_SRC="unparseable"
   fi
-  rm -f "$LOADED_F.try" "$SSSEG"
+  rm -f "$LOADED_F.try" "$SSSEG" "$WORK/arrays.txt"
 fi
 
 # CLAUDE.md is always in the set when it exists, regardless of hooks (see (1)
@@ -787,7 +814,12 @@ BYTES_PER_TOKEN=4
 LOADED_N=$(grep -cv '^[[:space:]]*$' "$LOADED_F" 2>/dev/null || true)
 [ -z "$LOADED_N" ] && LOADED_N=0
 
-if [ "$LOADED_SRC" = "unparseable" ]; then
+if [ "$LOADED_SRC" = "unresolved" ]; then
+  # Same verdict as the unparseable branch and for the same reason — the set is
+  # not fully determined — but a different fix, so a different message.
+  report SKIP "auto-load budget — a SessionStart loader names a file this script could not resolve"
+  fail "auto-load budget could not be measured: a SessionStart hook's 'DOC_FILES_ARR=(...)' contains an entry that is not a quoted literal filename — an unquoted glob such as docs/*.md, which bash expands when the hook builds its array. How many files that becomes, and how large they are, is not determined by the settings file, so the injected total is unknown rather than acceptable. Either quote every entry so the list says what it loads, or name the loaded files explicitly with --budget-file (repeatable)."
+elif [ "$LOADED_SRC" = "unparseable" ]; then
   # Negative branch, written out rather than assumed: a SessionStart hook
   # exists and declared no file list this script can read, so whether it
   # injects documents — and which — is undetermined. That makes the total

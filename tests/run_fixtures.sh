@@ -618,6 +618,14 @@ add_pretooluse_md_mention() {
     .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
 }
 
+# A loader whose array mixes a quoted filename with an unquoted glob, the shape
+# bash expands at array-construction time and this parse cannot resolve.
+write_glob_loader_settings() {
+  mkdir -p .claude
+  printf '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"DOC_FILES_ARR=(\\"CLAUDE.md\\" docs/*.md); for f in \\"${DOC_FILES_ARR[@]}\\"; do cat \\"$f\\"; done"}]}]}}\n' \
+    > .claude/settings.json
+}
+
 # Collapses settings.json to one line, the shape a line-based parse got wrong.
 minify_settings() {
   jq -c . .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
@@ -639,7 +647,20 @@ check_audit_case "auto-load budget past the hard ceiling (FAIL)" 1 "hard ceiling
 # Precision guard, and the one that proves the check measures the *loaded* set
 # rather than the scanned one: an oversized document nobody injects costs a
 # session nothing, and flagging it would be a finding with no fix.
-check_audit_case "an oversized doc outside the loaded set is not a budget finding" 0 "auto-load budget" \
+#
+# The assertion used to be the substring "auto-load budget", which appears in
+# all five branch labels and so asserted nothing — the case rested entirely on
+# its exit code, and only because its pad happens to clear the hard ceiling.
+# Raise the ceiling as well as mis-measure the set and it passed while the
+# audit reported INFO on a set the loader never names. Asserting the
+# percentage is what makes it discriminating: counting the padded file reads
+# 195%, not 0%. The "tokens), " anchor is load-bearing and was added after the
+# neuter test caught it missing — these assertions are plain substring matches,
+# and a bare "0% of the" is also a substring of "190% of the", so the case
+# passed against a mis-measuring implementation whose percentage happened to
+# end in a zero. An assertion that depends on the last digit of a number
+# asserts nothing reliable.
+check_audit_case "an oversized doc outside the loaded set is not a budget finding" 0 "tokens), 0% of the" \
   "write_loader_settings CLAUDE.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<6000;i++) print p}' >> DECISIONS.md"
 
 # Negative branch: a SessionStart hook is present and declared no file list
@@ -652,7 +673,7 @@ check_audit_case "loader present but its file list is unparseable (SKIP = findin
 
 # ...and the escape hatch clears it, so the SKIP above is never a permanent
 # unclearable finding.
-check_audit_case "--budget-file states the set an unparseable loader hides" 0 "auto-load budget" \
+check_audit_case "--budget-file states the set an unparseable loader hides" 0 "source: --budget-file" \
   "write_optout_loader_settings" --budget-file CLAUDE.md --budget-file DECISIONS.md
 
 # A file the loader names but which does not exist is reported, not silently
@@ -677,7 +698,7 @@ check_audit_case "every SessionStart loader is counted, not just the first" 0 "a
 # over the whole file, so this decoy won outright and the real loader's set was
 # never read. Asserting 0% is what makes this discriminating: the decoy names
 # the padded file, so counting it would read 119%.
-check_audit_case "a DOC_FILES_ARR outside a SessionStart hook is not the loaded set" 0 "0% of the" \
+check_audit_case "a DOC_FILES_ARR outside a SessionStart hook is not the loaded set" 0 "tokens), 0% of the" \
   "write_decoy_loader_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
 
 # Claude Code runs matching hooks from both settings files, so a loader added
@@ -703,7 +724,7 @@ check_audit_case "a minified settings.json parses the same as a pretty-printed o
 # input: the case above would pass even if the decoy were counted, since the
 # loader it names is small either way. Here the decoy names the padded file, so
 # counting it reads 119%.
-check_audit_case "a minified settings.json scopes a decoy out, same as a pretty-printed one" 0 "0% of the" \
+check_audit_case "a minified settings.json scopes a decoy out, same as a pretty-printed one" 0 "tokens), 0% of the" \
   "write_decoy_loader_settings && minify_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
 
 # The input shape that used to manufacture a finding: minified, the old
@@ -714,15 +735,30 @@ check_audit_case "a minified settings.json scopes a decoy out, same as a pretty-
 # the heuristic is gone, so this passes because the status hook is recognised
 # (the case below), not because of anything to do with the .md or the
 # minification. Neutering the exemption is what breaks it.
-check_audit_case "the retired '.md on the command line' signal no longer manufactures a SKIP" 0 "0% of the" \
+check_audit_case "the retired '.md on the command line' signal no longer manufactures a SKIP" 0 "tokens), 0% of the" \
   "write_status_settings && add_pretooluse_md_mention && minify_settings"
+
+# An unquoted entry in the array — a glob bash expands when the hook builds it.
+# Previously dropped on the floor: not counted, and not even surfaced as "named
+# but absent", so this fixture's 177KB injection reported PASS at 0%. How many
+# files it becomes is not determined by the settings file, so the honest answer
+# is unknown.
+check_audit_case "an unquoted glob in the loader's array is unknown, not zero" 1 "could not resolve" \
+  "write_glob_loader_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> docs/guide.md"
+
+# ...and the precision counterpart, because the two look alike and are not the
+# same case. A *quoted* entry containing a glob is never expanded — the loader
+# iterates "${DOC_FILES_ARR[@]}" — so it stays a literal path that does not
+# exist, and "named but absent" is the honest answer rather than a SKIP.
+check_audit_case "a quoted glob is a literal path, reported absent rather than unknown" 0 "named but absent" \
+  "write_loader_settings CLAUDE.md 'docs/*.md'"
 
 # Foundry installs the status hook unconditionally and it injects no documents,
 # so it must not read as an unidentified loader — that would put a standing
 # SKIP on every Foundry project that declined the doc-loader hook. Recognised
 # by the foundry.scaffolded read that is the hook's whole purpose, and the
 # fixture uses the real template so rewriting that hook fails this case loudly.
-check_audit_case "Foundry's own status hook alone is not an unidentified loader" 0 "0% of the" \
+check_audit_case "Foundry's own status hook alone is not an unidentified loader" 0 "tokens), 0% of the" \
   "write_status_settings"
 
 # ...but it vouches only for itself. A hand-rolled loader sharing the same
