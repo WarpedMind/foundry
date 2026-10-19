@@ -3,6 +3,20 @@
 # Entries from 2026-06 are archived, verbatim, in DECISIONS_ARCHIVE.md — not auto-loaded;
 # see "Where the history lives" in CLAUDE.md.
 
+## 2026-10-19 — The auto-load budget's loaded-set parse: SessionStart-scoped, every array, and a SKIP rule that stops guessing
+
+### The loaded set is every DOC_FILES_ARR a SessionStart hook declares, across both settings files
+- Was: one whole-file `grep | head -1`, stopping at the first settings file that yielded an array. An adversarial pass found three ways that reports a confident total for a set nothing injects — a decoy `DOC_FILES_ARR=` in a `PreToolUse` hook winning outright, a second SessionStart loader block discarded, and a loader in `settings.local.json` never read although Claude Code runs it. Now scoped to SessionStart segments, positionally rather than by line, and every array is summed.
+- **Why:** the check's whole claim is that it measures what actually loads. A wrong number carries the same authority as a right one and is worse than a SKIP, because nothing invites a second look at it. Scoped by line it could not work at all: a minified `settings.json` is one line, a pretty-printed one splits the event key from its command.
+- **How to apply:** nothing is deduplicated — two loaders naming the same file `cat` it twice, so the repeat is real injected bytes. If this parse grows a case, add its mutation case first.
+- **Enforced at:** `skills/foundry-audit/audit.sh` (the "auto-loaded subset" derivation block); `tests/run_fixtures.sh`.
+
+### An unaccounted-for SessionStart hook is a SKIP, because whether it injects documents is undecidable from its text
+- The old branch guessed, using "the command names a `.md`" as the signal, and was wrong both ways: it missed every loader with an indirect file list (a helper script, a sibling list file, a plain `cat A.md B.md` whose event name lives in the JSON key) and reported `PASS … 0%` on an injection past the hard ceiling; and on a minified settings file it fired on an unrelated `PreToolUse` command that merely mentioned a `.md`. It no longer guesses. Accounted for: a parseable `DOC_FILES_ARR=`, or Foundry's own status hook, recognised by its `foundry.scaffolded` read.
+- **Why:** this is the repo's own standing rule applied to the mechanism built to embody it — absence of a recognisable trigger was being treated as the safe case, inside the very branch whose comment claimed it refused to do that. Erring toward SKIP costs a clearable finding; erring toward PASS costs a silent wrong number.
+- **How to apply:** the status-hook exemption vouches only for itself — a hand-rolled loader under the same `"SessionStart"` key is still unaccounted for. The residual cost (a non-Foundry, non-loading SessionStart hook gets one SKIP) is cleared for good with `--budget-file`. Do not widen the exemption to quiet a finding; that is the failure the check exists to catch, performed on the check.
+- **Enforced at:** `skills/foundry-audit/audit.sh`; `tests/run_fixtures.sh`; `skills/foundry-audit/SKILL.md`.
+
 ## 2026-08-18 — Doc-budget handoff item 4: the thresholds, the INFO/FAIL split, and what the check refuses to do
 
 ### The auto-load budget is 160,000 bytes, derived twice independently rather than picked

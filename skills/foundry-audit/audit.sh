@@ -174,8 +174,9 @@ fi
 # DOC_FILES_ARR=(\"CLAUDE.md\" \"DECISIONS.md\") — hence the backslash strip.
 LOADED_F="$WORK/loaded.txt"
 : > "$LOADED_F"
-# Where the answer came from, so the check can say so: "--budget-file", a
-# settings path, "default" (CLAUDE.md only, no loader found), or "unparseable".
+# Where the answer came from, so the check can say so: "--budget-file", one
+# or both settings paths joined by " + ", "default" (CLAUDE.md only, no
+# SessionStart hook at all), or "unparseable".
 LOADED_SRC="default"
 
 if [ -n "$(printf '%s' "$BUDGET_FILE_ARGS" | tr -d '[:space:]')" ]; then
@@ -188,29 +189,118 @@ if [ -n "$(printf '%s' "$BUDGET_FILE_ARGS" | tr -d '[:space:]')" ]; then
   printf '%s\n' "$BUDGET_FILE_ARGS" | grep -v '^[[:space:]]*$' > "$LOADED_F"
   LOADED_SRC="--budget-file"
 else
+  # Every DOC_FILES_ARR a SessionStart hook declares, across both settings
+  # files — not the first one found anywhere in either file.
+  #
+  # Both halves of that matter, and an adversarial pass found each one wrong:
+  #   * Unscoped, a DOC_FILES_ARR= in any other hook (a PreToolUse command, a
+  #     statusMessage, anything) was taken as the loaded set, because the grep
+  #     ran over the whole file. The audit then reported a confident total for
+  #     a set nothing injects.
+  #   * head -1 plus break-on-first-file discarded every array after the
+  #     first: a second SessionStart loader block, or a loader added in
+  #     settings.local.json. Claude Code runs every matching hook from both
+  #     files, so each of those arrays is really injected.
+  #
+  # Scoped positionally rather than by line, because line boundaries carry no
+  # information here: a minified settings.json puts every hook on one line,
+  # and a pretty-printed one puts the event key and its command on different
+  # ones. The file is flattened to one stream, split before each event key
+  # ("SessionStart": and its siblings), and only the SessionStart segments are
+  # searched. Requiring a colon after the key, with no backslash before it, is
+  # what separates the JSON key from the string "SessionStart" inside Foundry's
+  # own loader command (hookEventName: \"SessionStart\"), where the quotes are
+  # escaped and the next character is a comma.
+  #
+  # Nothing is deduplicated. Two loaders naming the same file cat it twice, so
+  # the repeat is real injected bytes, not a parse artifact.
+  SS_EVENTS='SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop|SubagentStop|PreCompact|Notification|SessionEnd'
+  SSSEG="$WORK/ssseg.txt"
+  : > "$LOADED_F.try"
+  LOADED_SRCS=""
+  SS_HOOK_SEEN=0
   for SETTINGS in .claude/settings.json .claude/settings.local.json; do
     [ -f "$SETTINGS" ] || continue
-    grep -o 'DOC_FILES_ARR=([^)]*)' "$SETTINGS" 2>/dev/null | head -1 | tr -d '\\' \
-      | grep -oE '"[^"]+"' | tr -d '"' > "$LOADED_F.try" 2>/dev/null || : > "$LOADED_F.try"
-    if [ -s "$LOADED_F.try" ]; then
-      cp "$LOADED_F.try" "$LOADED_F"
-      LOADED_SRC="$SETTINGS"
-      break
-    fi
-    # No parseable array — but does something here look like a doc loader
-    # anyway? A hand-rolled SessionStart hook that cats documents is invisible
-    # to the pattern above, and reporting "no loader" for it would be the
-    # absence-of-a-trigger-treated-as-safe failure this repo keeps finding.
-    # Narrow signal on purpose: a hook command that both declares itself a
-    # SessionStart hook and names a Markdown file. A PreToolUse command that
-    # happens to mention a .md does not match.
-    if grep '"command"' "$SETTINGS" 2>/dev/null | grep -F 'SessionStart' \
-         | grep -qE '[A-Za-z0-9_.-]+\.md' 2>/dev/null; then
-      LOADED_SRC="unparseable"
-      break
+    tr '\n' ' ' < "$SETTINGS" | awk -v events="$SS_EVENTS" '
+      {
+        s = $0; re = "\"(" events ")\"[ \t]*:"
+        cur = ""; inss = 0; pos = 1
+        while (1) {
+          rest = substr(s, pos)
+          if (match(rest, re) == 0) { cur = cur rest; break }
+          mstart = pos + RSTART - 1; mlen = RLENGTH
+          key = substr(s, mstart, mlen)
+          prev = (mstart > 1) ? substr(s, mstart - 1, 1) : ""
+          if (prev == "\\") {
+            # An escaped quote: this is text inside a command string, not a
+            # key. Keep it in the current segment and carry on scanning.
+            cur = cur substr(s, pos, RSTART - 1 + mlen); pos = mstart + mlen
+            continue
+          }
+          cur = cur substr(s, pos, RSTART - 1)
+          if (inss) print cur
+          cur = key; inss = (key ~ /^"SessionStart"/); pos = mstart + mlen
+        }
+        if (inss) print cur
+      }' > "$SSSEG" 2>/dev/null || : > "$SSSEG"
+    [ -s "$SSSEG" ] || continue
+    # Count the SessionStart hook commands this script cannot account for.
+    # Each segment is chunked at its "command" keys so hooks are classified
+    # one at a time: a settings.json holding a loader and a status hook under
+    # one "SessionStart" key must not let either one vouch for the other.
+    # The colon in the split pattern is load-bearing — every hook also carries
+    # "type": "command", and splitting on the bare word made that value start
+    # a chunk of its own, which then matched no marker and counted as unknown.
+    #
+    # A chunk is accounted for if it is a parseable loader, or if it is
+    # recognisably Foundry's own status hook — identified by the
+    # foundry.scaffolded read that is the whole point of that hook
+    # (templates/settings.status.json.template), not by guessing from
+    # filenames. That hook is installed unconditionally, injects a one-line
+    # systemMessage and no documents, so treating it as unknown would put a
+    # standing SKIP on every Foundry project that declined the doc loader.
+    # Anything else is unknown, and unknown is what the SKIP branch is for.
+    SS_UNKNOWN=$(awk '
+      { n = split($0, parts, /"command"[ \t]*:/)
+        for (i = 2; i <= n; i++) {
+          if (parts[i] ~ /DOC_FILES_ARR=\(/) continue
+          if (parts[i] ~ /foundry\.scaffolded/) continue
+          c++
+        } }
+      END { print c + 0 }' "$SSSEG" 2>/dev/null || echo 0)
+    [ -z "$SS_UNKNOWN" ] && SS_UNKNOWN=0
+    SS_HOOK_SEEN=$((SS_HOOK_SEEN + SS_UNKNOWN))
+    BEFORE=$(wc -c < "$LOADED_F.try" | tr -d ' ')
+    grep -o 'DOC_FILES_ARR=([^)]*)' "$SSSEG" 2>/dev/null | tr -d '\\' \
+      | grep -oE '"[^"]+"' | tr -d '"' >> "$LOADED_F.try" 2>/dev/null || true
+    AFTER=$(wc -c < "$LOADED_F.try" | tr -d ' ')
+    if [ "$AFTER" -gt "$BEFORE" ]; then
+      LOADED_SRCS="${LOADED_SRCS:+$LOADED_SRCS + }$SETTINGS"
     fi
   done
-  rm -f "$LOADED_F.try"
+  if [ -s "$LOADED_F.try" ]; then
+    cp "$LOADED_F.try" "$LOADED_F"
+    LOADED_SRC="$LOADED_SRCS"
+  elif [ "$SS_HOOK_SEEN" -gt 0 ]; then
+    # A SessionStart hook runs arbitrary shell, and whether it injects
+    # documents cannot be read off its text. This branch used to guess, with
+    # "names a .md file" as the signal, and was wrong both ways: it missed
+    # every loader that gets its file list indirectly (a helper script, a
+    # sibling list file, a plain `cat A.md B.md` whose event name lives in the
+    # JSON key rather than the command) and reported PASS at 0% while the real
+    # injection sat past the hard ceiling; and on a minified settings.json it
+    # fired on an unrelated PreToolUse command that merely mentioned a .md.
+    #
+    # So it no longer guesses. An unrecognised SessionStart hook means the
+    # injected total is unknown, and unknown is a finding here. Foundry's own
+    # status hook is recognised and exempt (see the counting loop above); the
+    # residual cost is a project with some other non-loading SessionStart hook
+    # — a `git fetch`, a notifier — which gets one SKIP, clearable for good
+    # with --budget-file. That is the right direction to be wrong in: a
+    # clearable finding beats a silent wrong number.
+    LOADED_SRC="unparseable"
+  fi
+  rm -f "$LOADED_F.try" "$SSSEG"
 fi
 
 # CLAUDE.md is always in the set when it exists, regardless of hooks (see (1)
@@ -698,15 +788,18 @@ LOADED_N=$(grep -cv '^[[:space:]]*$' "$LOADED_F" 2>/dev/null || true)
 [ -z "$LOADED_N" ] && LOADED_N=0
 
 if [ "$LOADED_SRC" = "unparseable" ]; then
-  # Negative branch, written out rather than assumed: something declares itself
-  # a SessionStart hook and names a Markdown file, so documents ARE being
-  # injected, but which ones cannot be determined. That makes the total
-  # unknown, not fine — SKIP, which this script counts as a finding.
-  report SKIP "auto-load budget — a SessionStart hook appears to inject documents, but its file list could not be parsed"
-  fail "auto-load budget could not be measured: a SessionStart hook command in .claude/settings.json names a Markdown file but no parseable 'DOC_FILES_ARR=(...)' file list. The injected size is therefore unknown, which is not the same as acceptable. Name the loaded files explicitly with --budget-file (repeatable) to make this check run."
+  # Negative branch, written out rather than assumed: a SessionStart hook
+  # exists and declared no file list this script can read, so whether it
+  # injects documents — and which — is undetermined. That makes the total
+  # unknown, not fine — SKIP, which this script counts as a finding. The
+  # earlier version of this branch tried to decide the question from the
+  # command's text and was wrong in both directions; see the derivation block
+  # above for what it missed and why guessing was dropped.
+  report SKIP "auto-load budget — a SessionStart hook is present whose injected documents could not be identified"
+  fail "auto-load budget could not be measured: .claude/settings.json (or .claude/settings.local.json) declares a SessionStart hook, but no SessionStart hook command contains a parseable 'DOC_FILES_ARR=(...)' file list. Whether that hook injects documents, and which, cannot be read off its text, so the injected size is unknown — which is not the same as acceptable. Name the loaded files explicitly with --budget-file (repeatable) to make this check run; if the hook injects no documents at all, --budget-file CLAUDE.md says so and clears this for good."
 elif [ "$LOADED_N" -eq 0 ]; then
-  # Reachable only with no CLAUDE.md and no loader. Genuinely N/A: nothing is
-  # injected, so there is no injection to size.
+  # Reachable only with no CLAUDE.md and no SessionStart hook. Genuinely N/A:
+  # nothing is injected, so there is no injection to size.
   report "N/A " "auto-load budget — no CLAUDE.md and no SessionStart doc-loader, so nothing is auto-injected"
 else
   BSORT="$WORK/budget.txt"

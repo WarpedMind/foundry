@@ -539,8 +539,13 @@ write_loader_settings() {
     '}' > .claude/settings.json
 }
 
-# A hand-rolled SessionStart hook that cats a document with no parseable file
-# list — the shape the "unparseable" branch exists for.
+# A hand-rolled SessionStart hook that cats documents with no parseable file
+# list — the shape the "unparseable" branch exists for. Note what this command
+# does NOT contain: the string "SessionStart". The event name lives in the JSON
+# key, not the command, and an earlier version of this fixture appended an
+# `echo hookEventName: SessionStart` so the then-current heuristic would fire
+# on it. That made the case pass against an input built to satisfy the check
+# rather than against the shape it claims to represent.
 write_optout_loader_settings() {
   mkdir -p .claude
   printf '%s\n' \
@@ -551,13 +556,71 @@ write_optout_loader_settings() {
     '        "hooks": [' \
     '          {' \
     '            "type": "command",' \
-    '            "command": "cat CLAUDE.md DECISIONS.md; echo hookEventName: SessionStart"' \
+    '            "command": "cat CLAUDE.md DECISIONS.md"' \
     '          }' \
     '        ]' \
     '      }' \
     '    ]' \
     '  }' \
     '}' > .claude/settings.json
+}
+
+# Two SessionStart loader blocks under one "SessionStart" key. $1.. are the
+# first loader's files (default CLAUDE.md); the second always names DECISIONS.md
+# and SESSIONS.md, so a parse that keeps only one array undercounts visibly.
+write_two_loader_settings() {
+  local first="${1:-CLAUDE.md}"
+  write_loader_settings "$first"
+  local second
+  second=$(printf 'DOC_FILES_ARR=(\\"DECISIONS.md\\" \\"SESSIONS.md\\" ); for f in \\"x\\"; do cat \\"$f\\"; done')
+  jq --arg c "$second" '.hooks.SessionStart += [{"hooks":[{"type":"command","command":$c}]}]' \
+    .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
+}
+
+# A real SessionStart loader naming only CLAUDE.md, plus a decoy DOC_FILES_ARR
+# in a PreToolUse hook naming the padded file. Tests that the parse is scoped
+# to SessionStart rather than grepping the whole settings file.
+write_decoy_loader_settings() {
+  write_loader_settings CLAUDE.md
+  jq '.hooks.PreToolUse = [{"matcher":"Bash","hooks":[{"type":"command","command":"DOC_FILES_ARR=(\"DECISIONS.md\"); echo ok"}]}]' \
+    .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
+}
+
+# A loader in settings.local.json. Claude Code runs matching hooks from both
+# files, so this one's files are injected on top of settings.json's.
+write_local_loader_settings() {
+  mkdir -p .claude
+  local arr="" f
+  for f in "$@"; do arr="${arr}\\\"${f}\\\" "; done
+  printf '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"DOC_FILES_ARR=(%s); for f in \\"x\\"; do cat \\"$f\\"; done"}]}]}}\n' \
+    "$arr" > .claude/settings.local.json
+}
+
+# Foundry's real status hook, from the template rather than a stand-in: the
+# exemption that keeps it from reading as an unidentified loader matches on the
+# foundry.scaffolded read, so this case fails loudly if that hook is rewritten.
+write_status_settings() {
+  mkdir -p .claude
+  cp "$REPO_ROOT/templates/settings.status.json.template" .claude/settings.json
+}
+
+# The same status hook with a hand-rolled loader added under the same
+# "SessionStart" key — the recognised hook must not vouch for its sibling.
+write_status_plus_handrolled_settings() {
+  write_status_settings
+  jq '.hooks.SessionStart += [{"hooks":[{"type":"command","command":"cat CLAUDE.md DECISIONS.md"}]}]' \
+    .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
+}
+
+# A PreToolUse command that merely mentions a Markdown file.
+add_pretooluse_md_mention() {
+  jq '.hooks.PreToolUse = [{"matcher":"Bash","hooks":[{"type":"command","command":"grep -q x CHANGELOG.md || true"}]}]' \
+    .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
+}
+
+# Collapses settings.json to one line, the shape a line-based parse got wrong.
+minify_settings() {
+  jq -c . .claude/settings.json > .claude/_t && mv .claude/_t .claude/settings.json
 }
 
 # ~52 bytes per line, so the line counts below are the byte budget in disguise.
@@ -579,10 +642,12 @@ check_audit_case "auto-load budget past the hard ceiling (FAIL)" 1 "hard ceiling
 check_audit_case "an oversized doc outside the loaded set is not a budget finding" 0 "auto-load budget" \
   "write_loader_settings CLAUDE.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<6000;i++) print p}' >> DECISIONS.md"
 
-# Negative branch: a loader is present and clearly injecting documents, but its
-# file list cannot be read. The budget is unknown, and unknown is a finding
-# here, not a pass.
-check_audit_case "loader present but its file list is unparseable (SKIP = finding)" 1 "could not be parsed" \
+# Negative branch: a SessionStart hook is present and declared no file list
+# this script can read, so whether it injects documents is undetermined. The
+# budget is unknown, and unknown is a finding here, not a pass. This fixture's
+# loader does inject three documents past the hard ceiling; the point is that
+# the audit says so rather than reporting PASS at 0%.
+check_audit_case "loader present but its file list is unparseable (SKIP = finding)" 1 "could not be identified" \
   "write_optout_loader_settings"
 
 # ...and the escape hatch clears it, so the SKIP above is never a permanent
@@ -594,6 +659,76 @@ check_audit_case "--budget-file states the set an unparseable loader hides" 0 "a
 # counted as zero — matching the loader's own [ -f ] guard while still saying so.
 check_audit_case "a loader naming a missing file says so in the breakdown" 0 "named but absent" \
   "write_loader_settings CLAUDE.md GONE.md"
+
+# --- check 11: the loaded-set parse ----------------------------------------
+# From the adversarial pass on the budget check itself. Every case below is a
+# shape that made the old parse report a confident number for a set nothing
+# injects, or miss an injection entirely — it reported PASS at 0% while the
+# fixture's real injection sat past the hard ceiling. The assertions are on
+# the percentage and the exit code rather than on the words "auto-load budget",
+# which appear in all five branch labels and so assert nothing.
+
+# Two SessionStart loader blocks. The old parse took the first array and
+# discarded the rest, so the padded file the second one names went uncounted.
+check_audit_case "every SessionStart loader is counted, not just the first" 0 "an archive pass is due" \
+  "write_two_loader_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+# A DOC_FILES_ARR in a hook that is not a SessionStart loader. The old grep ran
+# over the whole file, so this decoy won outright and the real loader's set was
+# never read. Asserting 0% is what makes this discriminating: the decoy names
+# the padded file, so counting it would read 119%.
+check_audit_case "a DOC_FILES_ARR outside a SessionStart hook is not the loaded set" 0 "0% of the" \
+  "write_decoy_loader_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+# Claude Code runs matching hooks from both settings files, so a loader added
+# in settings.local.json injects too. The old parse stopped at the first file
+# that yielded an array.
+check_audit_case "a loader in settings.local.json is counted alongside settings.json's" 0 "an archive pass is due" \
+  "write_loader_settings CLAUDE.md && write_local_loader_settings DECISIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+# Nothing is deduplicated, and that is deliberate: two loaders naming the same
+# file cat it twice, so the repeat is real injected bytes. Without the second
+# array this reads 61%; with it, 119%.
+check_audit_case "two loaders naming the same file count it twice" 0 "an archive pass is due" \
+  "write_two_loader_settings CLAUDE.md && write_local_loader_settings CLAUDE.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<1700;i++) print p}' >> CLAUDE.md"
+
+# The scoping is positional, not line-based, because a minified settings.json
+# puts every hook on one line and a pretty-printed one splits the event key
+# from its command. Both shapes must give the same answer. This pair is a
+# regression guard on that, not a defect injection.
+check_audit_case "a minified settings.json parses the same as a pretty-printed one" 0 "an archive pass is due" \
+  "write_loader_settings CLAUDE.md DECISIONS.md && minify_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+# ...and the scoping has to hold minified too, which needs a discriminating
+# input: the case above would pass even if the decoy were counted, since the
+# loader it names is small either way. Here the decoy names the padded file, so
+# counting it reads 119%.
+check_audit_case "a minified settings.json scopes a decoy out, same as a pretty-printed one" 0 "0% of the" \
+  "write_decoy_loader_settings && minify_settings && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
+
+# The input shape that used to manufacture a finding: minified, the old
+# heuristic's three greps all matched the single line, so a SessionStart key
+# plus an unrelated PreToolUse command mentioning a .md reported SKIP on a
+# project whose only SessionStart hook injects nothing. Pinned here so that
+# shape can't start failing again — but note honestly what carries it now:
+# the heuristic is gone, so this passes because the status hook is recognised
+# (the case below), not because of anything to do with the .md or the
+# minification. Neutering the exemption is what breaks it.
+check_audit_case "the retired '.md on the command line' signal no longer manufactures a SKIP" 0 "0% of the" \
+  "write_status_settings && add_pretooluse_md_mention && minify_settings"
+
+# Foundry installs the status hook unconditionally and it injects no documents,
+# so it must not read as an unidentified loader — that would put a standing
+# SKIP on every Foundry project that declined the doc-loader hook. Recognised
+# by the foundry.scaffolded read that is the hook's whole purpose, and the
+# fixture uses the real template so rewriting that hook fails this case loudly.
+check_audit_case "Foundry's own status hook alone is not an unidentified loader" 0 "0% of the" \
+  "write_status_settings"
+
+# ...but it vouches only for itself. A hand-rolled loader sharing the same
+# "SessionStart" key is still unidentified, so the total is still unknown.
+check_audit_case "a recognised status hook does not vouch for a sibling loader" 1 "could not be identified" \
+  "write_status_plus_handrolled_settings"
 
 # --- check 9 now reads the derived loaded set, not three hardcoded names -----
 # Same change, and it needs its own pair: the check's whole job is to surface
