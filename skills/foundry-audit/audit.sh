@@ -330,11 +330,42 @@ else
   rm -f "$LOADED_F.try" "$SSSEG" "$WORK/arrays.txt"
 fi
 
-# CLAUDE.md is always in the set when it exists, regardless of hooks (see (1)
-# above). Prepend rather than append so the breakdown reads in load order.
-if [ -f CLAUDE.md ] && ! grep -qxF CLAUDE.md "$LOADED_F"; then
-  { printf 'CLAUDE.md\n'; cat "$LOADED_F"; } > "$LOADED_F.new" && mv "$LOADED_F.new" "$LOADED_F"
+# Two injections, not one set with two names for an entry — the distinction is
+# the whole reason this block exists in this shape.
+#
+# Claude Code injects CLAUDE.md as project instructions whenever it exists, and
+# a doc-loader hook naming CLAUDE.md injects a SECOND copy on top. The context
+# really does receive it twice; this was observed directly in a session of this
+# repo, whose hook payload begins "=== CLAUDE.md ===" while the project
+# instructions carried the same file. An earlier version of this block merged
+# the two into a set and deduplicated, which under-reported the injected total
+# by one whole copy of CLAUDE.md — 24KB, 15 percentage points of budget, on
+# this repo.
+#
+# So the two are kept apart. LOADED_F stays the loader's own list, and the
+# project-instructions copy is accounted separately:
+#   * INJ_F — every injection, one line per copy, as "path<TAB>label". This is
+#     what check 11 sums, so a file injected twice is counted twice.
+#   * SEEN_F — the union, deduplicated. This is what check 9 asks, because its
+#     question is "does the session see this file at all", for which a second
+#     copy changes nothing.
+INJ_F="$WORK/inject.txt"
+SEEN_F="$WORK/seen.txt"
+: > "$INJ_F"
+if [ -f CLAUDE.md ]; then
+  printf 'CLAUDE.md\tCLAUDE.md (project instructions)\n' >> "$INJ_F"
 fi
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  if [ "$f" = CLAUDE.md ]; then
+    # Labelled so a reader can see why it appears twice rather than reading the
+    # repeat as a bug in this script.
+    printf '%s\tCLAUDE.md (doc-loader hook)\n' "$f" >> "$INJ_F"
+  else
+    printf '%s\t%s\n' "$f" "$f" >> "$INJ_F"
+  fi
+done < "$LOADED_F"
+cut -f1 "$INJ_F" | sort -u > "$SEEN_F"
 
 report() { printf '[%s] %s\n' "$1" "$2"; }
 
@@ -726,7 +757,7 @@ if [ -f CLAUDE.md ]; then
   CAND=0
   while IFS= read -r f; do
     [ -z "$f" ] && continue
-    grep -qxF "$f" "$LOADED_F" && continue
+    grep -qxF "$f" "$SEEN_F" && continue
     N=$(grep -cE '^[[:space:]]*[-*][[:space:]].*(\bnever\b|\bmust never\b|\bunder no circumstances\b|\bnon-negotiable\b)' "$f" 2>/dev/null || true)
     [ -z "$N" ] && N=0
     if [ "$N" -gt 0 ]; then
@@ -775,7 +806,7 @@ fi
 # ---------------------------------------------------------------------------
 # The one check here that measures cost rather than correctness, and it exists
 # because this repo demonstrated the failure on itself: the auto-loaded set
-# grew from 16,874 bytes at first commit to 303,867 (~76,000 tokens, ~38% of a
+# grew from 22,586 bytes at first commit to 365,604 (~91,000 tokens, ~46% of a
 # 200k window) over ~20 sessions, unnoticed, because every individual session's
 # addition was small and reasonable. Nothing was ever wrong with those files —
 # no dangling reference, no stale path — so every other check in this script
@@ -793,25 +824,39 @@ fi
 #
 #   (B) Lead time. A threshold is only useful if it fires while the fix is
 #       still one cheap session rather than an emergency. Measured across this
-#       repo's full history (51 commits, 2026-06-28 → 2026-08-18): +294,148
-#       bytes total, median non-zero per-commit delta ~5,900 bytes, ~14,700
-#       bytes per session. From the post-archive 84,138-byte baseline, a
-#       160,000-byte trip point leaves ~76,000 bytes of headroom — roughly
-#       five average sessions, or ~13 doc-touching commits. Late enough not to
-#       fire on the session that just archived, early enough that the fix is a
-#       routine verbatim move.
+#       repo's full history (51 commits, 2026-06-28 → 2026-08-18): +343,018
+#       bytes total, ~17,150 bytes per session. From the post-archive
+#       105,022-byte baseline, five sessions of runway would put the trip point
+#       at ~191,000 bytes.
 #
-# Both land on ~160KB. That convergence is the defence; either number alone
-# would be one assumption wearing a decimal point.
+# These used to converge, and no longer do. That is a real change and it is
+# recorded rather than smoothed over (DECISIONS.md 2026-10-19). Both figures
+# above were originally measured counting CLAUDE.md once, when the context
+# actually receives it twice — once as project instructions, once from a
+# doc-loader hook naming it. Re-measured consistently, (A) does not move at
+# all, because 20% of a window is 20% of a window however the bytes got there;
+# but (B)'s baseline and growth rate both rise by a copy of CLAUDE.md, and (B)
+# now asks for ~191,000 rather than ~156,000.
+#
+# (A) wins, so the number stays. You cannot grant yourself more lead time by
+# deciding the overhead is acceptable — (A) is a statement about what the
+# session can afford, (B) only about how much warning is convenient. The honest
+# cost of keeping 160,000 is stated plainly instead: from the post-archive
+# baseline it is ~55,000 bytes of headroom, about 3.2 average sessions, not the
+# five the single-count measurement appeared to give. If a real archive pass
+# ever feels rushed when this fires, that is the recorded reason, and the fix
+# is to lower this number or archive more often — never to raise it.
 BUDGET_INFO_BYTES=160000
 # The hard ceiling is not derived at all — it is the level this repo actually
-# reached and a recorded decision actually rejected (303,867 bytes, DECISIONS.md
-# 2026-08-18). Arriving back here is not a judgment call about what is too big;
-# it is evidence the archive discipline did not hold.
-BUDGET_FAIL_BYTES=304000
+# reached and a recorded decision actually rejected, re-measured the same way
+# as everything else here: 365,604 bytes (DECISIONS.md 2026-08-18 recorded it
+# as 303,867, which was the same doc set counting CLAUDE.md once; the commit is
+# 87ee79e0 either way). Arriving back here is not a judgment call about what is
+# too big; it is evidence the archive discipline did not hold.
+BUDGET_FAIL_BYTES=366000
 BYTES_PER_TOKEN=4
 
-LOADED_N=$(grep -cv '^[[:space:]]*$' "$LOADED_F" 2>/dev/null || true)
+LOADED_N=$(grep -cv '^[[:space:]]*$' "$INJ_F" 2>/dev/null || true)
 [ -z "$LOADED_N" ] && LOADED_N=0
 
 if [ "$LOADED_SRC" = "unresolved" ]; then
@@ -838,19 +883,21 @@ else
   : > "$BSORT"
   BUDGET_TOTAL=0
   BUDGET_MISSING=""
-  while IFS= read -r f; do
+  # One iteration per injection, not per distinct file: a file the session
+  # receives twice costs twice, and that is what the threshold is about.
+  while IFS=$(printf '\t') read -r f label; do
     [ -z "$f" ] && continue
     if [ -f "$f" ]; then
       FSZ=$(wc -c < "$f" | tr -d ' ')
       BUDGET_TOTAL=$((BUDGET_TOTAL + FSZ))
-      printf '%s\t%s\n' "$FSZ" "$f" >> "$BSORT"
+      printf '%s\t%s\n' "$FSZ" "$label" >> "$BSORT"
     else
       # The loader guards each file with [ -f "$f" ], so a named-but-absent
       # file contributes nothing. Named anyway, because a loader pointing at a
       # file that does not exist is worth seeing.
       BUDGET_MISSING="$BUDGET_MISSING $f"
     fi
-  done < "$LOADED_F"
+  done < "$INJ_F"
 
   # Per-file breakdown, largest first, printed on every outcome including PASS.
   # The threshold is on the TOTAL — that is what gets injected, and the files

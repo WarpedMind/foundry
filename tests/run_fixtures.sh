@@ -642,7 +642,7 @@ check_audit_case "auto-load budget crossed (INFO, does not fail the run)" 0 "an 
   "write_loader_settings CLAUDE.md DECISIONS.md SESSIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<3400;i++) print p}' >> DECISIONS.md"
 
 check_audit_case "auto-load budget past the hard ceiling (FAIL)" 1 "hard ceiling" \
-  "write_loader_settings CLAUDE.md DECISIONS.md SESSIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<6000;i++) print p}' >> DECISIONS.md"
+  "write_loader_settings CLAUDE.md DECISIONS.md SESSIONS.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<7200;i++) print p}' >> DECISIONS.md"
 
 # Precision guard, and the one that proves the check measures the *loaded* set
 # rather than the scanned one: an oversized document nobody injects costs a
@@ -752,6 +752,23 @@ check_audit_case "an unquoted glob in the loader's array is unknown, not zero" 1
 # exist, and "named but absent" is the honest answer rather than a SKIP.
 check_audit_case "a quoted glob is a literal path, reported absent rather than unknown" 0 "named but absent" \
   "write_loader_settings CLAUDE.md 'docs/*.md'"
+
+# CLAUDE.md reaches a session twice when a doc-loader names it: once because
+# Claude Code reads it as project instructions, once because the hook cats it.
+# The check used to merge the two into a set and deduplicate, under-reporting
+# by a whole copy. The pad here is sized so one copy is comfortably under
+# budget and two are over, which is what makes this discriminating: a
+# deduplicating implementation reports PASS, not INFO.
+check_audit_case "a loader naming CLAUDE.md counts it twice, not once" 0 "an archive pass is due" \
+  "write_loader_settings CLAUDE.md && awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<1700;i++) print p}' >> CLAUDE.md"
+
+# ...and the precision counterpart, because "count it twice" must not become
+# "count it twice always". With no loader at all there is one injection, the
+# project-instructions one, and the same padded file is under budget. Asserting
+# the PASS branch by name is what discriminates: a blanket double-count reports
+# INFO on this input.
+check_audit_case "with no doc-loader, CLAUDE.md is counted once" 0 "[PASS] auto-load budget" \
+  "awk -v p=\"\$PAD\" 'BEGIN{for(i=0;i<1700;i++) print p}' >> CLAUDE.md"
 
 # Foundry installs the status hook unconditionally and it injects no documents,
 # so it must not read as an unidentified loader — that would put a standing
