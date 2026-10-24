@@ -71,12 +71,19 @@ done < fixtures/gitignore-cases.txt
 echo "  done."
 
 # --- secrets-guard pre-commit regex ---
+# The two patterns live in variables so the blocking-semantics section below
+# can assert the shipped template still carries this exact regex. Two
+# hand-maintained copies of one pattern is how `config/prod.yaml` slipped
+# through once already (Session 12).
+SG_EXCLUDE='(^|/)\.env\.example$'
+SG_REGEX='(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|/)config[^/]*\.json$|(^|/)config/.*\.json$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)|(^|[/_.-])service[_-]?account[_-]?.*\.json$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.[^/]*)?$|\.tfvars$|(^|/)\.npmrc$|\.pfx$'
+
 echo "== secrets-guard regex (tests/fixtures/secrets-guard-cases.txt) =="
 while read -r expect path; do
   [ -z "${expect:-}" ] && continue
   case "$expect" in \#*) continue ;; esac
   STAGED="$path"
-  FORBIDDEN=$(echo "$STAGED" | grep -vE '(^|/)\.env\.example$' | grep -iE '(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|/)config[^/]*\.json$|(^|/)config/.*\.json$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)|(^|[/_.-])service[_-]?account[_-]?.*\.json$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.[^/]*)?$|\.tfvars$|(^|/)\.npmrc$|\.pfx$' || true)
+  FORBIDDEN=$(echo "$STAGED" | grep -vE "$SG_EXCLUDE" | grep -iE "$SG_REGEX" || true)
   if [ -n "$FORBIDDEN" ]; then
     actual=block
   else
@@ -87,6 +94,141 @@ while read -r expect path; do
     FAIL=1
   fi
 done < fixtures/secrets-guard-cases.txt
+echo "  done."
+
+# --- Hook 2: secrets-guard blocking semantics ---
+# The section above tests whether the regex *classifies a filename* correctly.
+# This one tests whether the hook, as shipped, *stops the commit* — a different
+# property, and the one that was inert from this hook's first version until
+# 2026-10-24 while the section above stayed green the whole time. `exit 1` is a
+# non-blocking error on PreToolUse: Claude Code lets the tool call proceed, and
+# does not surface plain stdout for that event, so the guard neither blocked
+# nor spoke. Verified against code.claude.com/docs/en/hooks — policy
+# enforcement is exit 2 with the reason on stderr.
+#
+# The command is extracted from the template rather than retyped here, so the
+# thing under test is the artifact projects actually receive. Retyping it per
+# project is how the broken exit code survived six scaffolds.
+echo "== secrets-guard blocking semantics (Hook 2, templates/settings.secretsguard.json.template) =="
+GUARD_TMPL="$REPO_ROOT/templates/settings.secretsguard.json.template"
+GUARD_CMD=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$GUARD_TMPL")
+
+# Drift guard: the regex exercised above must be the regex the hook ships.
+case "$GUARD_CMD" in
+  *"$SG_REGEX"*) ;;
+  *) echo "  FAIL: template regex has drifted from the one the section above tests"; FAIL=1 ;;
+esac
+
+GUARD_TMPDIR=$(mktemp -d)
+cd "$GUARD_TMPDIR"
+git init -q; git config user.email t@t.com; git config user.name t
+
+# $1 label | $2 bash command the hook sees | $3 expected exit code
+# $4 substring expected on stderr ("" = expect nothing at all)
+# $5 optional: hook body to run instead of the shipped one (mutation cases)
+check_guard() {
+  local label="$1" cmd="$2" want_rc="$3" want_msg="${4:-}" body="${5:-$GUARD_CMD}"
+  local err rc
+  # stderr is captured and stdout discarded: on PreToolUse only stderr carries
+  # a block reason, so asserting on stdout would repeat the original mistake.
+  err=$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}' | bash -c "$body" 2>&1 >/dev/null) && rc=0 || rc=$?
+  if [ "$rc" != "$want_rc" ]; then
+    echo "  FAIL: $label — expected exit $want_rc, got $rc"
+    FAIL=1
+    return
+  fi
+  if [ -n "$want_msg" ]; then
+    case "$err" in
+      *"$want_msg"*) ;;
+      *) echo "  FAIL: $label — stderr did not mention '$want_msg'; got: $err"; FAIL=1 ;;
+    esac
+  elif [ -n "$err" ]; then
+    echo "  FAIL: $label — expected silence, got: $err"
+    FAIL=1
+  fi
+}
+
+# A forbidden file staged, and a legitimate one alongside it.
+mkdir -p config
+printf 'SECRET=real\n' > .env
+printf 'k: v\n' > config/prod.yaml
+printf 'SECRET=\n' > .env.example
+printf '{}\n' > package.json
+git add -f .env config/prod.yaml .env.example package.json
+
+# 1. Blocks, with exit 2, naming the offending files.
+check_guard "forbidden file staged -> exit 2"            'git commit -m "x"' 2 "BLOCKED by secrets-guard"
+check_guard "block reason names the file"                'git commit -m "x"' 2 ".env"
+check_guard "block reason names a nested config file"    'git commit -m "x"' 2 "config/prod.yaml"
+check_guard "bare git commit is still scoped in"         'git commit'        2 "BLOCKED by secrets-guard"
+check_guard "chained cd && git commit"                   'cd foo && git commit -m x' 2 "BLOCKED by secrets-guard"
+check_guard "git -C <path> commit"                       'git -C /tmp commit -m x'   2 "BLOCKED by secrets-guard"
+
+# 3. Non-commit commands must pass untouched even while a secret is staged.
+#    This matters only now that the hook blocks: unscoped, it would deny every
+#    Bash call while a secret sits in the index — including the `git restore`
+#    needed to get out of it.
+check_guard "git status is not a commit"                 'git status'        0 ""
+check_guard "git commit inside a quoted string"          'echo "git commit"' 0 ""
+# Both unstage commands must pass: these are the escape hatch the block message
+# names, and a guard that blocks its own remedy traps the user. `git rm --cached`
+# is what the message recommends, because `git restore --staged` fails outright
+# in a repo with no commits ("could not resolve HEAD") — and the first commit is
+# exactly when this guard most often fires. Found by end-to-end test, not by
+# reading: the original message advised the command that does not work there.
+check_guard "the advised unstage command is not blocked"  'git rm --cached .env'      0 ""
+check_guard "git restore --staged is not blocked either"  'git restore --staged .env' 0 ""
+check_guard "an unrelated command"                       'npm test'          0 ""
+
+# 2. A clean index commits freely, with no noise.
+git rm -q --cached .env config/prod.yaml
+check_guard "only legitimate files staged -> exit 0"     'git commit -m "x"' 0 ""
+git add -f .env config/prod.yaml
+
+# 4. Mutation cases — the point of this section. Each reintroduces a real
+#    historical or plausible defect and asserts the case above goes red.
+#    A green suite proves nothing about a check nobody has watched fail, and
+#    this hook is that rule's own proof: the regex cases above passed for
+#    months while the hook did not block at all.
+# Runs a mutated hook body and reports the exit code and stderr it produced,
+# so each case below can assert the mutation breaks the specific property the
+# unmutated case asserts.
+probe_guard() {
+  local body="$1" cmd="$2"
+  PROBE_ERR=$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}' | bash -c "$body" 2>&1 >/dev/null) \
+    && PROBE_RC=0 || PROBE_RC=$?
+}
+
+# M1 — the original defect, verbatim: exit 1 instead of exit 2. Breaks
+# "forbidden file staged -> exit 2".
+probe_guard "${GUARD_CMD//exit 2/exit 1}" 'git commit -m x'
+if [ "$PROBE_RC" = "2" ]; then
+  echo "  FAIL: mutation not caught — 'exit 1' still exited 2; the blocking case cannot discriminate"
+  FAIL=1
+fi
+
+# M2 — reason on stdout instead of stderr. Still exits 2, so an exit-code-only
+# assertion would pass; this is why the cases above assert the message too.
+# PreToolUse does not surface stdout, so this is the other half of the original
+# defect: a block with no visible reason.
+probe_guard "${GUARD_CMD// >&2/}" 'git commit -m x'
+if [ -n "$PROBE_ERR" ]; then
+  echo "  FAIL: mutation not caught — dropping '>&2' still delivered the reason on stderr"
+  FAIL=1
+fi
+
+# M3 — scoping neutered. Strips the git-commit test so the body runs for every
+# Bash call; breaks the silent cases, not the blocking ones. Built by cutting
+# the command at its first '; then ' rather than by regex, so the mutation
+# cannot be defeated by the pattern being reworded.
+probe_guard "if true; then ${GUARD_CMD#*; then }" 'git status'
+if [ "$PROBE_RC" = "0" ]; then
+  echo "  FAIL: mutation not caught — unscoped hook still allowed 'git status'; the silent cases cannot discriminate"
+  FAIL=1
+fi
+
+cd "$REPO_ROOT"
+rm -rf "$GUARD_TMPDIR"
 echo "  done."
 
 # --- Hook 4: directory-drift logger ---
@@ -254,9 +396,36 @@ git remote add origin "$PUSH_REMOTE"; git push -q -u origin main
 echo more >> readme.txt; git add readme.txt; git commit -qm "non-risky readme tweak"
 check_push_silent "non-risky push does not spend the session cap"         "git push" "hook5-s10"
 
+# This hook advises; it must not decide. It used to emit
+# permissionDecision:"allow" alongside the advisory, and per the hook contract
+# "allow" skips the permission prompt — so the hook warning that a push looked
+# risky was also removing the confirmation for that same push. Found 2026-10-24
+# by re-checking every hook's output fields against the docs rather than by
+# reading the JSON back. An advisory returns systemMessage only and exits 0,
+# which leaves the normal permission flow untouched.
+check_push_no_decision() {
+  local label="$1" cmd="$2" session="$3"
+  local out
+  out=$(push_payload "$cmd" "$session" | bash -c "$PUSH_CMD")
+  if [ -z "$out" ]; then
+    echo "  FAIL: $label — expected an advisory to inspect, got silence"
+    FAIL=1
+    return
+  fi
+  if echo "$out" | grep -q 'permissionDecision'; then
+    echo "  FAIL: $label — hook returned a permission decision; an advisory must not decide"
+    FAIL=1
+  fi
+  if ! echo "$out" | jq -e '.systemMessage | type == "string"' >/dev/null 2>&1; then
+    echo "  FAIL: $label — advisory did not carry a systemMessage string"
+    FAIL=1
+  fi
+}
+
 mkdir -p src; echo 'SECRET_KEY=abc' > src/auth_config.py
 git add src/auth_config.py; git commit -qm "add auth config"
 check_push_fires  "risky push, same session, cap not yet spent"           "git push" "hook5-s10"
+check_push_no_decision "advisory carries no permission decision"         "git push" "hook5-s11"
 
 echo x > src/another_secret.txt; git add src/another_secret.txt; git commit -qm "more secret stuff"
 check_push_silent "second risky push, same session (cap now spent)"       "git push" "hook5-s10"
@@ -415,6 +584,27 @@ check_audit_case "dangling decision reference" 1 "dangling decision reference: 2
 
 check_audit_case "allowlist suppresses a recounted decision date" 0 "RESULT: CLEAN" \
   "printf '\nDECISIONS.md once cited 2099-01-01, which never existed.\n' >> SESSIONS.md && printf '2099-01-01\n' > .foundry-audit-allow"
+
+# --- archive-aware resolution tier (added 2026-10-24) -----------------------
+# A decision moved verbatim into DECISIONS_ARCHIVE.md is still a real decision.
+# Before this tier, citing one read as dangling, and the first real archive
+# pass allowlisted two dates that were never wrong to quiet it — the allowlist
+# covering for a gap in the check. Three cases: the tier resolves, the tier is
+# load-bearing (neutered, the same input fails), and a date that resolves
+# nowhere still fails so the tier didn't just blanket-approve everything.
+check_audit_case "citation resolving into DECISIONS_ARCHIVE.md is not dangling" 0 "all resolve (1 via DECISIONS_ARCHIVE.md)" \
+  "printf '\n## 2025-06-01 — Archived decision\n\n### Old call\n- Decided.\n' > DECISIONS_ARCHIVE.md && printf '\nSee DECISIONS.md 2025-06-01 for the original call.\n' >> SESSIONS.md"
+
+check_audit_case "a date in neither DECISIONS.md nor the archive still fails" 1 "dangling decision reference: 2099-09-09" \
+  "printf '\n## 2025-06-01 — Archived decision\n\n### Old call\n- Decided.\n' > DECISIONS_ARCHIVE.md && printf '\nSee DECISIONS.md 2099-09-09 for details.\n' >> SESSIONS.md"
+
+# The reference scan matches each line's CONTENT. It used to run over a
+# filename-prefixed concatenation, so every line of DECISIONS.md matched its
+# own filename and every ISO date in that file — including dates merely quoted
+# in prose — counted as a citation. Worded to avoid the separate
+# "the <date> entry/decision" pattern, which would legitimately catch it.
+check_audit_case "a date quoted in DECISIONS.md prose is not a citation" 0 "RESULT: CLEAN" \
+  "printf '\n### Context\n- Superseded the 2099-08-08 approach entirely.\n' >> DECISIONS.md"
 
 check_audit_case "decision log out of order" 1 "not in the newest-first order" \
   "printf '\n## 2025-01-01 — Older\n\n### x\n- y\n' > /tmp/_a && cat DECISIONS.md /tmp/_a > /tmp/_b && printf '\n## 2027-01-01 — Newest, in the wrong place\n\n### x\n- y\n' >> /tmp/_b && cp /tmp/_b DECISIONS.md"

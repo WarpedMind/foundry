@@ -22,25 +22,9 @@ ADR-099
 # this line first.
 2026-06-30
 
-# The first real archive pass (2026-10-19) moved four entries into
-# DECISIONS_ARCHIVE.md, and the dangling-reference check has no archive-aware
-# tier: it only looks for a '## <date>' heading in DECISIONS.md, so a reference
-# to an archived entry reads as dangling even though it resolves. Every
-# genuine cross-reference was repointed at the archive by name instead of being
-# allowlisted (see README.md's two roadmap lines). These two dates could not be,
-# and are allowlisted with the reason stated:
-#
-# 2026-08-11 is cited in prose inside two *surviving* decision entries
-# (DECISIONS.md's 2026-08-18 conditional-offers entry). Rewording a surviving
-# entry to clear a check is worse than the silence, and would not clear it
-# anyway: the check prefixes every line with its filename, so every line of
-# DECISIONS.md matches its 'mentions DECISIONS.md' filter and every ISO date in
-# the file counts as a reference. Delete this line if that entry stops citing it.
-2026-08-11
-
-# 2026-08-17 survives only as a ship-date stamp on two README.md roadmap lines
-# ('added (2026-08-17)', 'done (2026-08-17)') that happen to also say
-# 'templates/DECISIONS.md.template' and to list DECISIONS.md among files a past
-# pass touched. Neither is a reference to a decision; both are facts about when
-# something shipped. Delete this line if a real citation of that date appears.
-2026-08-17
+# NOTE: the 2026-10-19/2026-10-24 archive passes previously required two
+# entries here (2026-08-11, 2026-08-17) purely because the decision-reference
+# check had no archive-aware tier. It has one as of 2026-10-24 — a citation
+# resolving to a '## <date>' heading in DECISIONS_ARCHIVE.md is no longer
+# reported as dangling — so both were deleted. Do not re-add a date here for
+# that reason; fix the tier instead.

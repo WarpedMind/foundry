@@ -401,10 +401,37 @@ fi
 # what is and is not checked):
 #   - any ISO date on a line that also mentions DECISIONS.md or "decision log"
 #   - "the <ISO date> entry" / "entries" / "decision"
+# Archive tier. Foundry's archive convention is `## <ISO date>` headings in
+# DECISIONS_ARCHIVE.md, moved verbatim out of DECISIONS.md to keep the
+# SessionStart auto-load small. An archived entry is still a real decision, so
+# a citation that lands on one resolves — reporting it as dangling made the
+# first real archive pass (2026-10-24) allowlist two dates that were never
+# wrong, which is the allowlist being used to hide a gap in this check.
+# Archives are deliberately NOT in the scanned document set (they are not
+# auto-loaded), so they are read here only as a resolution target: headings
+# are harvested from them, references inside them are not collected.
+DARCH_HEADS="$WORK/darchheads.txt"
+: > "$DARCH_HEADS"
+DARCH_FILES=""
+for a in DECISIONS_ARCHIVE*.md; do
+  [ -f "$a" ] || continue
+  DARCH_FILES="$DARCH_FILES $a"
+  grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' "$a" 2>/dev/null \
+    | sed -E 's/^## ([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/' >> "$DARCH_HEADS" || true
+done
+sort -u "$DARCH_HEADS" -o "$DARCH_HEADS"
+DARCH_COUNT=$(wc -l < "$DARCH_HEADS" | tr -d ' ')
+
 DREFS="$WORK/drefs.txt"
 : > "$DREFS"
 if [ "$DHEAD_COUNT" -gt 0 ]; then
-  grep -iE 'DECISIONS\.md|decision log' "$ALL" \
+  # Match the line's CONTENT, not the filename prefix $ALL carries. Grepping
+  # the prefixed line meant every line of DECISIONS.md matched its own
+  # filename, so every ISO date anywhere in that file — its header, a date
+  # quoted inside an unrelated entry — counted as a reference to a decision.
+  # Genuine in-file citations still register through the second pattern below.
+  awk -F'\t' '{ line=$0; sub(/^[^\t]*\t/, "", line);
+                if (tolower(line) ~ /decisions\.md|decision log/) print line }' "$ALL" \
     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' >> "$DREFS" 2>/dev/null || true
   grep -oiE 'the [0-9]{4}-[0-9]{2}-[0-9]{2} (entry|entries|decision)' "$ALL" \
     | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' >> "$DREFS" 2>/dev/null || true
@@ -426,19 +453,33 @@ elif [ "$DREF_COUNT" -eq 0 ]; then
 else
   DANGLING=""
   DN=0
+  DARCH_RESOLVED=0
   while IFS= read -r d; do
     [ -z "$d" ] && continue
-    if ! grep -qx "$d" "$DHEADS"; then
-      DANGLING="$DANGLING $d"
-      DN=$((DN + 1))
+    if grep -qx "$d" "$DHEADS"; then
+      continue
     fi
+    # Second tier: an entry that was archived verbatim still resolves.
+    if [ "$DARCH_COUNT" -gt 0 ] && grep -qx "$d" "$DARCH_HEADS"; then
+      DARCH_RESOLVED=$((DARCH_RESOLVED + 1))
+      continue
+    fi
+    DANGLING="$DANGLING $d"
+    DN=$((DN + 1))
   done < "$DREFS"
   if [ "$DN" -gt 0 ]; then
     report FAIL "decision references — $DN of $DREF_COUNT do not resolve"
     for d in $DANGLING; do
-      WHERE=$(grep -iE 'DECISIONS\.md|decision log' "$ALL" | grep -F "$d" | head -1 | cut -f1)
-      fail "dangling decision reference: $d (cited in ${WHERE:-a doc}) has no '## $d' heading in DECISIONS.md"
+      WHERE=$(awk -F'\t' -v want="$d" '{ line=$0; sub(/^[^\t]*\t/, "", line);
+                if (tolower(line) ~ /decisions\.md|decision log/ && index(line, want)) { print $1; exit } }' "$ALL")
+      if [ "$DARCH_COUNT" -gt 0 ]; then
+        fail "dangling decision reference: $d (cited in ${WHERE:-a doc}) has no '## $d' heading in DECISIONS.md or in${DARCH_FILES}"
+      else
+        fail "dangling decision reference: $d (cited in ${WHERE:-a doc}) has no '## $d' heading in DECISIONS.md"
+      fi
     done
+  elif [ "$DARCH_RESOLVED" -gt 0 ]; then
+    report PASS "decision references — $DREF_COUNT checked, all resolve ($DARCH_RESOLVED via${DARCH_FILES})"
   else
     report PASS "decision references — $DREF_COUNT checked, all resolve"
   fi

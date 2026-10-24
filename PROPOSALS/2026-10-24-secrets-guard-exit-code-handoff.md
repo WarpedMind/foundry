@@ -1,6 +1,23 @@
 # Handoff — Hook 2's secrets-guard does not block, and the suite that "covers" it never ran it
 
-**Date written:** 2026-10-24. **Status:** OPEN. Nothing in this document has been executed.
+**Date written:** 2026-10-24. **Status: DONE, all six items, 2026-10-24** (same day). See
+SESSIONS.md and DECISIONS.md's entries for that date. Kept for the record; nothing here is
+outstanding.
+
+**Corrections to this document, found while executing it.** (1) The Prerequisite note below was
+already stale when written — the archive pass it describes as uncommitted had been committed as
+`bbaf6b2`; only `skills/oneshot/SKILL.md` was dirty, and it was left untouched. (2) Item 3's
+premise was too pessimistic: scanning `~/Projects` found seven projects carrying the hook and
+only **one** still broken (`karbotrage/karbotrage_v1`, repaired in this pass). Three had been
+hand-fixed to `exit 2` and three to a JSON `deny` — six sessions improvising six repairs without
+ever correcting the skill, which reframed the root cause from "wrong exit code" to "a retyped
+snippet with no single point of correction", and is why Hook 2 now has a template. (3) Item 4's
+sweep of the other hooks found a real second defect, not just reassurance: Hook 5 was emitting
+`permissionDecision: "allow"` on an advisory, which skips the permission prompt. Fixed here.
+(4) One question in item 4 could not be settled from the docs and is now tracked in CLAUDE.md's
+KNOWN DEBT rather than closed: whether `systemMessage` is actually surfaced on `PreToolUse`.
+
+**Original status line:** OPEN. Nothing in this document has been executed.
 
 **Prerequisite:** none, but note the working tree already carries the 2026-10-24 archive pass
 (DECISIONS.md/DECISIONS_ARCHIVE.md/CLAUDE.md/SESSIONS.md/README.md/`.foundry-audit-allow`)
