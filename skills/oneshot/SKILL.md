@@ -27,7 +27,8 @@ Once the shape of the task is known, identify every genuinely load-bearing unkno
 
 For each question:
 - Give 2-4 real, meaningful options — not filler choices that only exist to pad the list.
-- Put the option you'd actually recommend first, and label it "(Recommended)" if there is a genuine default worth nudging toward.
+- Put the option you'd actually recommend first, and label it "(Recommended)" if there is a genuine default worth nudging toward. The label must reflect real judgment, not just whichever option happened to be drafted first — if nothing genuinely stands out, don't label one "(Recommended)" just to have a default.
+- When a question does carry a real recommendation, say so in the question's own prose too — not only in the option label — so the two can't silently diverge (e.g. one part of a response calling something "Sonnet high" and another part calling the same thing "Sonnet medium" is exactly the failure this guards against). A reader should be able to tell what's recommended and why from the question text alone, without having to infer it from label placement.
 - Trust the tool's built-in "Other" for anything that doesn't fit — that's cheaper for the user than a new back-and-forth turn, so don't try to enumerate every conceivable answer.
 - Write every option's label and description so someone who hasn't read the surrounding turn could still understand it — options get scanned, not read closely, often out of context or after a gap. Don't rely on a term of art introduced earlier in the conversation landing correctly inside an option; either avoid it or re-gloss it in the same sentence. If a concept needs real explanation, put that in the prose above the question, not inside the option text — and if you can't compress it, that's a sign the user isn't ready to choose yet.
 
