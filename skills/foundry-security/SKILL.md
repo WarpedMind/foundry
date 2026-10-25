@@ -11,11 +11,14 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
 
 ## Steps
 
-1. **`.gitignore` baseline.** Check the project's existing `.gitignore` (create one if absent). Ensure it includes, at minimum, this pattern set — verified by the committed, re-runnable fixture suite at `tests/run_fixtures.sh` (see `tests/fixtures/gitignore-cases.txt` for the full case list: catches `secrets.env`, `config.yaml.bak`, `real.key.txt`, `aws_credentials.json`, `my-credentials.yaml`, `src/config/secrets.yaml`, etc.; does not false-positive on `.env.example`, `secretary_notes.txt`, `api_keynote.md`, `the_keymaster.rb`, `monkey.py`, `notes.md`, `package.json`):
+1. **`.gitignore` baseline.** Check the project's existing `.gitignore` (create one if absent). Ensure it includes, at minimum, this pattern set — verified by the committed, re-runnable fixture suite at `tests/run_fixtures.sh` (see `tests/fixtures/gitignore-cases.txt` for the full case list: catches `secrets.env`, `config.yaml.bak`, `real.key.txt`, `aws_credentials.json`, `my-credentials.yaml`, `src/config/secrets.yaml`, `.dev.vars`, etc.; does not false-positive on `.env.example`, `.dev.vars.example`, `secretary_notes.txt`, `api_keynote.md`, `the_keymaster.rb`, `monkey.py`, `notes.md`, `package.json`):
    ```
    .env
    .env.*
    !.env.example
+   .dev.vars
+   .dev.vars.*
+   !.dev.vars.example
    *.pem*
    *.key*
    config*.yaml*
@@ -48,6 +51,8 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
    .npmrc
    *.pfx
    ```
+   **This fenced block is the single source of truth for the baseline, and `tests/run_fixtures.sh` extracts it from here** rather than keeping its own copy — so editing it changes what the suite tests, and the suite's `.gitignore` cases are testing the exact lines a project receives. Two consequences for anyone editing it: the step-1 heading above and the fence are what the extractor anchors on, so don't reformat them without re-running the suite (it fails with a message naming this file if the extraction breaks); and never resolve a failure by giving the suite a copy of the baseline. It carried one until 2026-10-25, which is the same structure that let Hook 2 ship inert — a suite exercising its own transcription while the artifact projects actually get was free to drift.
+
    An earlier version of this baseline used only the bare tokens (`.env`, `*.pem`, `*.key`, `config.yaml`, no wildcards around them) — an independent security review caught that this misses any filename with a suffix after the dangerous token (`.bak`, `.txt`, etc.) or a prefix before it (`secrets.env` vs. just `.env`). The pattern set above closes that gap; don't narrow it back to bare tokens for the sake of looking simpler.
 
    **Session 13 extended this baseline** after a second external review pass deliberately probed filenames not yet in the fixture set (rather than just re-checking existing cases) and found real misses: JSON config files (`config*.json*` plus a `config/**/*.json` glob — gitignore's plain `config*` prefix glob doesn't match files *inside* a `config/` directory the way the secrets-guard regex needed a separate alternative for the same reason, see Hook 2 in `foundry-hooks/SKILL.md`), GCP-style `service-account.json` credential files, bare-name SSH private keys (`id_rsa`/`id_ed25519`/etc., deliberately not matching their `.pub` counterparts, which are safe to commit), Terraform `.tfstate`/`.tfvars` files, `.npmrc`, and `.pfx` cert bundles. Verified both directions (new patterns ignore the new bad cases, while `id_rsa.pub`/`package.json`/etc. remain unignored) before merging — see `tests/fixtures/gitignore-cases.txt`.
@@ -57,6 +62,8 @@ Establishes the mechanical security baseline that CLAUDE.md's Security Rules sec
    Adjust/extend the config-filename patterns to match whatever real-config filename the project actually uses if it doesn't fit the patterns above (ask if unclear — don't guess a filename that doesn't exist in this project). Merge with existing `.gitignore` content; don't overwrite. Before trusting any addition to this baseline, add the new case(s) to `tests/fixtures/gitignore-cases.txt` in this Foundry checkout and re-run `tests/run_fixtures.sh` — don't just eyeball the one obvious case. This isn't theoretical: that exact fixture suite caught a real gap in the related secrets-guard regex (see `foundry-hooks/SKILL.md` Hook 2) the first time it was run as a committed, automated check rather than a one-time manual pass.
 
 2. **`.env.example` convention.** If the project uses a `.env` file (or is about to), check whether a `.env.example` exists alongside it with the same variable names but placeholder/empty values. If `.env` exists but `.env.example` doesn't, offer to generate one by reading `.env`'s variable *names* only — never echo real values into the example file or into any tool output. If `.env` doesn't exist yet, this step is a no-op for now.
+
+   The same convention applies to Cloudflare Workers projects, which keep local secrets in `.dev.vars` (and `.dev.vars.<environment>`) rather than `.env`: the baseline above ignores those and un-ignores `.dev.vars.example`, so offer to generate that example file on the same terms. Added 2026-10-25 because two projects scaffolded from Foundry had each added the pattern locally — see DECISIONS.md.
 
 3. **Check for already-committed secrets.** This is the single most consequential check in this skill — a false negative here means telling the user their project is fine when a real credential is sitting in git history. Do not rely solely on a narrow, exact-filename search; an earlier version of this check only searched `.env config.yaml '*.pem' '*.key'` plus whatever filenames the user happened to name, which silently misses anything not on that list (e.g. `secrets.env`, `creds.json`, `config/prod.yaml` — exactly the kind of names a real project is likely to actually use). Do both:
    - **Targeted search** (the narrow check, still useful as a quick first pass): `git log --all --full-history -- .env config.yaml '*.pem' '*.key'`, adjusted for any project-specific filename already named in CLAUDE.md's Security Rules section.

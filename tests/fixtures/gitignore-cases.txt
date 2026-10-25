@@ -4,6 +4,10 @@
 ignore .env
 ignore .env.local
 ignore .env.production
+# Cloudflare Workers keeps local secrets in .dev.vars / .dev.vars.<env> (added 2026-10-25).
+ignore .dev.vars
+ignore .dev.vars.production
+ignore src/.dev.vars
 ignore secrets.env
 ignore real.pem
 ignore real.key.txt
@@ -32,6 +36,8 @@ ignore prod.tfvars
 ignore .npmrc
 ignore cert.pfx
 keep .env.example
+keep .dev.vars.example
+keep dev-vars.md
 keep secretary_notes.txt
 keep api_keynote.md
 keep the_keymaster.rb

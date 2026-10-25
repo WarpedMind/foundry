@@ -12,62 +12,88 @@ REPO_ROOT="$(cd .. && pwd)"
 FAIL=0
 
 # --- .gitignore baseline ---
+# The baseline is NOT duplicated here. It is extracted from
+# skills/foundry-security/SKILL.md step 1's fenced block, because that block *is*
+# the artifact a project receives — a session reads it and writes those lines into
+# the project's .gitignore. A second hand-maintained copy in this file is the same
+# structure that let Hook 2 ship broken: the suite exercising its own transcription
+# while the thing projects actually get was free to drift. Keeping one copy is
+# strictly better than keeping two and asserting they match.
 echo "== .gitignore baseline (tests/fixtures/gitignore-cases.txt) =="
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
-cat > "$TMPDIR/.gitignore" <<'EOF'
-.env
-.env.*
-!.env.example
-*.pem*
-*.key*
-config*.yaml*
-config*.yml*
-config*.json*
-config/**/*.yaml
-config/**/*.yml
-config/**/*.json
-secret*.yaml
-secret*.yml
-secret*.env
-secret*.json
-*secret*.yaml
-*secret*.yml
-*secret*.json
-*_secret.*
-*-secret.*
-*credential*.yaml
-*credential*.yml
-*credential*.json
-*.credentials*
-*service*account*.json
-id_rsa
-id_dsa
-id_ecdsa
-id_ed25519
-*.tfstate
-*.tfstate.*
-*.tfvars
-.npmrc
-*.pfx
-EOF
+GITIGNORE_SRC="$REPO_ROOT/skills/foundry-security/SKILL.md"
+
+# Takes the first fenced block after step 1's heading, de-indented. Anchored on the
+# heading rather than on "the first fence in the file", so inserting a fenced
+# example earlier in the skill cannot silently retarget it.
+extract_gitignore_baseline() {
+  awk '
+    /^1\. \*\*`\.gitignore` baseline\.\*\*/ { instep = 1; next }
+    instep && /^[[:space:]]*```[[:space:]]*$/ { if (infence) exit; infence = 1; next }
+    infence { sub(/^[[:space:]]+/, ""); print }
+  ' "$1"
+}
+
+# A broken extraction yields nothing, and an empty .gitignore makes every `ignore`
+# case fail — loud, but 30-odd confusing FAILs pointing at the wrong thing. This
+# says what actually broke instead.
+baseline_is_plausible() {
+  case "$1" in *'!.env.example'*) ;; *) return 1 ;; esac
+  [ "$(printf '%s\n' "$1" | grep -c .)" -ge 20 ]
+}
+
+BASELINE=$(extract_gitignore_baseline "$GITIGNORE_SRC")
+if ! baseline_is_plausible "$BASELINE"; then
+  echo "  FAIL: could not extract the .gitignore baseline from skills/foundry-security/SKILL.md"
+  echo "        step 1 — its heading or fenced block moved. Fix the extractor, do not"
+  echo "        re-add a copy of the baseline to this file."
+  FAIL=1
+fi
+
 git -C "$TMPDIR" init -q
+
+# $1 baseline text, $2 path -> echoes ignore|keep. Takes the baseline as an
+# argument so the mutation case below can run a deliberately damaged one.
+gitignore_verdict() {
+  printf '%s\n' "$1" > "$TMPDIR/.gitignore"
+  mkdir -p "$TMPDIR/$(dirname "$2")"
+  : > "$TMPDIR/$2"
+  if git -C "$TMPDIR" check-ignore -q "$2"; then echo ignore; else echo keep; fi
+}
 
 while read -r expect path; do
   [ -z "${expect:-}" ] && continue
   case "$expect" in \#*) continue ;; esac
-  mkdir -p "$TMPDIR/$(dirname "$path")"
-  : > "$TMPDIR/$path"
-  if git -C "$TMPDIR" check-ignore -q "$path"; then
-    actual=ignore
-  else
-    actual=keep
-  fi
+  actual=$(gitignore_verdict "$BASELINE" "$path")
   if [ "$actual" != "$expect" ]; then
     echo "  FAIL: $path — expected $expect, got $actual"
     FAIL=1
   fi
 done < fixtures/gitignore-cases.txt
+
+# Mutation cases — the suite now reads the skill, so prove it actually does.
+# Both operate on copies in $TMPDIR; skills/foundry-security/SKILL.md is never touched.
+# M1 — delete `.dev.vars` from the skill's block. `.dev.vars.*` stays and does not
+# match the bare name, so the case above must flip to keep. Fails if this section
+# is really still reading a copy of its own.
+MUT_SKILL="$TMPDIR/SKILL.mutated.md"
+grep -v '^[[:space:]]*\.dev\.vars$' "$GITIGNORE_SRC" > "$MUT_SKILL"
+if [ "$(gitignore_verdict "$(extract_gitignore_baseline "$MUT_SKILL")" .dev.vars)" = ignore ]; then
+  echo "  FAIL: mutation not caught — .dev.vars stayed ignored with its line deleted from"
+  echo "        the skill, so this section is not reading the skill's block"
+  FAIL=1
+fi
+
+# M2 — remove step 1's heading so the extractor has nothing to anchor on. Breaks
+# the plausibility guard, not a path case.
+MUT_ANCHOR="$TMPDIR/SKILL.noanchor.md"
+grep -v '^1\. \*\*`\.gitignore` baseline' "$GITIGNORE_SRC" > "$MUT_ANCHOR"
+if baseline_is_plausible "$(extract_gitignore_baseline "$MUT_ANCHOR")"; then
+  echo "  FAIL: mutation not caught — a baseline extracted with no step-1 heading was"
+  echo "        still judged plausible; the guard cannot discriminate"
+  FAIL=1
+fi
 echo "  done."
 
 # --- secrets-guard pre-commit regex ---
@@ -75,8 +101,8 @@ echo "  done."
 # can assert the shipped template still carries this exact regex. Two
 # hand-maintained copies of one pattern is how `config/prod.yaml` slipped
 # through once already (Session 12).
-SG_EXCLUDE='(^|/)\.env\.example$'
-SG_REGEX='(^|/)\.env(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|/)config[^/]*\.json$|(^|/)config/.*\.json$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)|(^|[/_.-])service[_-]?account[_-]?.*\.json$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.[^/]*)?$|\.tfvars$|(^|/)\.npmrc$|\.pfx$'
+SG_EXCLUDE='(^|/)\.env\.example$|(^|/)\.dev\.vars\.example$'
+SG_REGEX='(^|/)\.env(\.[^/]*)?$|(^|/)\.dev\.vars(\.[^/]*)?$|\.pem(\.[^/]*)?$|\.key(\.[^/]*)?$|(^|/)config[^/]*\.ya?ml(\.[^/]*)?$|(^|/)config/.*\.ya?ml(\.[^/]*)?$|(^|/)config[^/]*\.json$|(^|/)config/.*\.json$|(^|[/_.-])secrets?([_.-]|$)|(^|[/_.-])credentials?([_.-]|$)|(^|[/_.-])service[_-]?account[_-]?.*\.json$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$|\.tfstate(\.[^/]*)?$|\.tfvars$|(^|/)\.npmrc$|\.pfx$'
 
 echo "== secrets-guard regex (tests/fixtures/secrets-guard-cases.txt) =="
 while read -r expect path; do
@@ -119,6 +145,16 @@ case "$GUARD_CMD" in
   *) echo "  FAIL: template regex has drifted from the one the section above tests"; FAIL=1 ;;
 esac
 
+# Same guard for the exclusion, which is a separate pattern in the same command
+# and decides every `allow`-side case with a dangerous-looking name
+# (`.env.example`, `.dev.vars.example`). Without this the template could lose its
+# allowlist while the regex section above stayed green off its own local copy —
+# the same shape as a tested surface standing in for the untested one beside it.
+case "$GUARD_CMD" in
+  *"$SG_EXCLUDE"*) ;;
+  *) echo "  FAIL: template exclusion has drifted from the one the section above tests"; FAIL=1 ;;
+esac
+
 GUARD_TMPDIR=$(mktemp -d)
 cd "$GUARD_TMPDIR"
 git init -q; git config user.email t@t.com; git config user.name t
@@ -153,13 +189,16 @@ mkdir -p config
 printf 'SECRET=real\n' > .env
 printf 'k: v\n' > config/prod.yaml
 printf 'SECRET=\n' > .env.example
+printf 'TOKEN=real\n' > .dev.vars
+printf 'TOKEN=\n' > .dev.vars.example
 printf '{}\n' > package.json
-git add -f .env config/prod.yaml .env.example package.json
+git add -f .env config/prod.yaml .env.example .dev.vars .dev.vars.example package.json
 
 # 1. Blocks, with exit 2, naming the offending files.
 check_guard "forbidden file staged -> exit 2"            'git commit -m "x"' 2 "BLOCKED by secrets-guard"
 check_guard "block reason names the file"                'git commit -m "x"' 2 ".env"
 check_guard "block reason names a nested config file"    'git commit -m "x"' 2 "config/prod.yaml"
+check_guard "block reason names a staged .dev.vars"      'git commit -m "x"' 2 ".dev.vars"
 check_guard "bare git commit is still scoped in"         'git commit'        2 "BLOCKED by secrets-guard"
 check_guard "chained cd && git commit"                   'cd foo && git commit -m x' 2 "BLOCKED by secrets-guard"
 check_guard "git -C <path> commit"                       'git -C /tmp commit -m x'   2 "BLOCKED by secrets-guard"
@@ -180,10 +219,13 @@ check_guard "the advised unstage command is not blocked"  'git rm --cached .env'
 check_guard "git restore --staged is not blocked either"  'git restore --staged .env' 0 ""
 check_guard "an unrelated command"                       'npm test'          0 ""
 
-# 2. A clean index commits freely, with no noise.
-git rm -q --cached .env config/prod.yaml
+# 2. A clean index commits freely, with no noise. `.env.example` and
+#    `.dev.vars.example` stay staged throughout, so a pass here is also the
+#    end-to-end proof that the exclusion still lets both committable templates
+#    through the shipped command, not just through the local copy above.
+git rm -q --cached .env config/prod.yaml .dev.vars
 check_guard "only legitimate files staged -> exit 0"     'git commit -m "x"' 0 ""
-git add -f .env config/prod.yaml
+git add -f .env config/prod.yaml .dev.vars
 
 # 4. Mutation cases — the point of this section. Each reintroduces a real
 #    historical or plausible defect and asserts the case above goes red.
