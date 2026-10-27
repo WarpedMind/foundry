@@ -109,7 +109,7 @@ Once scaffolding is done, tell the user all three are available (from this Found
 
 ## Step 4 — final review, no auto-commit
 
-Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md.
+Show the user a summary of everything created/modified (file list, not full contents again — they've already seen each piece as it was built). Ask if they want to commit now; do not commit without that explicit confirmation, consistent with the standing rule this very orchestrator just wrote into their CLAUDE.md. For a new repo, put `foundry-repo-hygiene` Part 1 step 6's private-docs question (pre-existing planning notes, drafts, docs naming real contacts) right beside the commit question, not after it — it is a judgment call, not a scan.
 
 After the commit question, always show this reminder — word for word, every time, for both new and existing projects:
 

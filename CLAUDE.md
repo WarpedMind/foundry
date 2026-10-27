@@ -95,7 +95,7 @@ Older material is archived out of this file to keep the SessionStart auto-load s
   Sessions 4-20 (2026-06-28 → 2026-08-18). Open it to reconstruct how a mechanism reached
   its current shape, or what an earlier review round actually found.
 - `SESSIONS_ARCHIVE.md` — session entries older than the newest two, newest-first
-  (currently from the 2026-10-24 first-archive-pass entry backwards). Open it when
+  (currently from the 2026-10-24 secrets-guard entry backwards). Open it when
   tracing when and why something changed.
 - `DECISIONS_ARCHIVE.md` — decision entries from 2026-06 through 2026-08-18, newest-first
   (2026-06 originally; the six August entries were added by the 2026-10-24 pass, two of them

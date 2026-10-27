@@ -4,6 +4,14 @@
 # 2026-08-18, two of that date's five entries among them — not auto-loaded;
 # see "Where the history lives" in CLAUDE.md.
 
+## 2026-10-27 — Ask about pre-existing private docs before the first commit, by judgment
+
+### A judgment check, not a scanner
+- New-repo sequencing now has a step before the first commit: look at non-code docs already in the folder before Foundry ran (planning notes, outreach drafts, anything naming real contacts or holding unsent messages, partnership/negotiation plans), and if any look private, name them and ask: commit and keep the remote private, or keep them untracked via `.gitignore`.
+- **Why:** a `/foundry-init` run on a real project staged an outreach plan naming real people and unsent email drafts into the first commit with no warning; it was caught only because the assistant happened to read the files. Git history is permanent, so a private doc committed now costs a history rewrite if the repo is later made public or shared. Asking costs one question. No scanner because "private" has no pattern — a regex would either miss the case that prompted this or flag every README, and a fixture for it would lend a judgment call the tested checks' credibility.
+- **How to apply:** ask about docs you can't classify rather than treating them as safe; don't offer "keep the remote private" if a public remote already exists. Never add a "private content" detector to the secrets-guard or `tests/run_fixtures.sh`.
+- **Enforced at:** `skills/foundry-repo-hygiene/SKILL.md` Part 1 step 6; `skills/foundry-init/SKILL.md` Step 4. Prose only — no mechanical enforcement.
+
 ## 2026-10-25 — Cloudflare's `.dev.vars` joins the secrets baseline, component-anchored
 
 ### The `.gitignore` baseline has one copy, and the suite reads it instead of transcribing it
