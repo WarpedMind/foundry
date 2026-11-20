@@ -236,6 +236,17 @@ The one thing that changes per platform is **how each one gets to those files**,
 - Go to claude.ai/code, select the `WarpedMind/karbotrage` GitHub repo → hooks fire, using whatever was last pushed.
 - You do **not** run `/foundry-init` again for any of these. It already happened, once, and the files it wrote are what every platform above is reading.
 
+## Using Foundry with Projects
+
+Claude Code "Projects" put a coordinator chat in front of many separate threads that all work on one repo. Foundry works there, with these conventions:
+
+- **Run `/foundry-init` once when you start a product**, on your own machine, then create a Project for that repo. One product, one Code Project, all kinds of threads.
+- **Foundry's commands live on your local machine.** They are not available in cloud threads, so the status hook stays silent there rather than offering a command that doesn't exist.
+- **Questions and sign-off adapt to the environment.** The end-of-turn menu uses `AskUserQuestion` if present, otherwise the Projects decision card, otherwise plain text. Undoable steps proceed with a note of what was done; hard-to-reverse ones still need sign-off. This is judgment guidance, not something the test suite checks.
+- **Standing reminders** (e.g. a HUMANS-TODO doc) are stated once per project and are the main chat's job, not every thread's.
+- **Private material stays out of the repo.** Threads share the repo, so anything you wouldn't publish doesn't belong in it.
+- **Projects scaffolded before 2026-11-20 keep the old rules**, because the template copies rules into each project's CLAUDE.md. To update one, edit its CLAUDE.md by hand: soften the "end every turn with `AskUserQuestion`" and "plan mode before non-trivial work" lines to match `templates/CLAUDE.md.template`, add the standing-reminder rule, and re-run `/foundry-hooks` to refresh the status hook. Foundry does not do this for you.
+
 ## What Foundry does NOT do (read this before you rely on it)
 
 - **It is not a security audit.** The secrets-guard hook catches realistic filename patterns (`.env`, `*.pem`, `config.yaml`, etc.) — it does not catch a secret hardcoded inside an otherwise-ordinary source file, a secret pasted into a file with an innocuous name, or anything already committed before Foundry was set up (there's a separate check for that last one, but it's a scan, not a guarantee). It also only sees files already in the index (`git diff --cached`), so files staged by the commit itself — `git commit -a`, or `git commit <path>` — are outside its reach.

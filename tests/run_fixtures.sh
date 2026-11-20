@@ -343,15 +343,20 @@ echo "  done."
 # on string equality, not a static filename, so it doesn't fit *.txt's shape.
 echo "== status/offer hook (Hook 3, templates/settings.status.json.template) =="
 STATUS_TMPDIR=$(mktemp -d)
+# The offer branch is gated on the Foundry skills being installed, so the hook
+# reads $HOME. Every case runs against a fake HOME: one with foundry-init
+# present, one without.
+STATUS_HOME_WITH=$(mktemp -d); mkdir -p "$STATUS_HOME_WITH/.claude/skills/foundry-init"
+STATUS_HOME_WITHOUT=$(mktemp -d)
 STATUS_CMD=$(jq -r '.hooks.SessionStart[].hooks[] | select(.type=="command") | .command' "$REPO_ROOT/templates/settings.status.json.template")
 cd "$STATUS_TMPDIR"
 
 check_status_case() {
-  local label="$1" content="$2" expect_substr="$3"
+  local label="$1" content="$2" expect_substr="$3" home="${4:-$STATUS_HOME_WITH}"
   mkdir -p .claude
   printf '%s' "$content" > .claude/settings.json
   local actual
-  actual=$(echo '{}' | bash -c "$STATUS_CMD" | jq -r '.hookSpecificOutput.additionalContext')
+  actual=$(echo '{}' | HOME="$home" bash -c "$STATUS_CMD" | jq -r '.hookSpecificOutput.additionalContext')
   case "$actual" in
     *"$expect_substr"*) ;;
     *) echo "  FAIL: $label — expected substring '$expect_substr', got '$actual'"; FAIL=1 ;;
@@ -369,8 +374,25 @@ check_status_case "top-level array"              '[1,2,3]'                      
 check_status_case "string \"true\" not boolean"  '{"foundry":{"scaffolded":"true","scaffoldedDate":"2026-02-02"}}'   "Foundry: Active (scaffolded 2026-02-02)"
 check_status_case "contradictory both true"      '{"foundry":{"scaffolded":true,"dismissed":true,"scaffoldedDate":"2026-03-03"}}' "Foundry: Active (scaffolded 2026-03-03)"
 
+# Skill-availability gate (cloud/Projects threads have no ~/.claude/skills).
+# An empty expectation is an exact-match check for silence, not a substring.
+check_status_silent() {
+  local label="$1" content="$2" home="$3"
+  mkdir -p .claude
+  printf '%s' "$content" > .claude/settings.json
+  local actual
+  actual=$(echo '{}' | HOME="$home" bash -c "$STATUS_CMD" | jq -r '.hookSpecificOutput.additionalContext')
+  [ -z "$actual" ] || { echo "  FAIL: $label — expected silence, got '$actual'"; FAIL=1; }
+}
+check_status_silent "offer silent: skill absent, neither flag"   '{}'                                   "$STATUS_HOME_WITHOUT"
+check_status_silent "offer silent: skill absent, malformed json" '{not valid'                           "$STATUS_HOME_WITHOUT"
+check_status_silent "offer silent: HOME unset-equivalent (empty)" '{}'                                  ""
+check_status_case   "offer present: skill installed"             '{}' "/foundry-init"                   "$STATUS_HOME_WITH"
+check_status_case   "Active shown even when skill absent"        '{"foundry":{"scaffolded":true,"scaffoldedDate":"2026-04-04"}}' "Foundry: Active (scaffolded 2026-04-04)" "$STATUS_HOME_WITHOUT"
+check_status_silent "dismissed stays silent when skill absent"   '{"foundry":{"dismissed":true}}'       "$STATUS_HOME_WITHOUT"
+
 cd "$REPO_ROOT"
-rm -rf "$STATUS_TMPDIR"
+rm -rf "$STATUS_TMPDIR" "$STATUS_HOME_WITH" "$STATUS_HOME_WITHOUT"
 echo "  done."
 
 # --- Hook 5: push-time qc-review offer ---

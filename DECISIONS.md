@@ -4,6 +4,16 @@
 # 2026-08-18, two of that date's five entries among them — not auto-loaded;
 # see "Where the history lives" in CLAUDE.md.
 
+## 2026-11-20 — Four absolute rules made conditional on the environment, for use alongside Claude Code Projects
+
+### Old behaviour stays the default; each rule gains an explicit "what if the environment is unknown" branch
+- **Changed:** (1) the end-of-turn question rule now says `AskUserQuestion` if available, else the environment's own decision mechanism (e.g. a Projects decision card), else plain text; (2) the sign-off rule now says proceed-and-report on reversible steps, keep plan mode/sign-off for hard-to-reverse and multi-approach/unclear work; (3) the template gains a rule that standing reminders are stated once per project and are the main chat's job, not every thread's (the example file is a to-do doc named HUMANS-TODO, a neutral name for a public repo — no such rule existed in the templates before, so this is new wording, not a rewrite); (4) Hook 3 no longer offers `/foundry-init` where the Foundry skills are not installed.
+- **Why:** in a Projects setup many threads run against one repo, some in cloud environments with no `~/.claude/skills`. An absolute "end with `AskUserQuestion`" names a tool that may not exist there, an absolute "plan first" adds a round-trip to every undoable edit, an every-session reminder repeats in every thread, and Hook 3's offer points at a command that does not exist.
+- **Alternatives rejected:** deleting the rules (loses the hands-on Claude Code behaviour that works); leaving them (breaks or nags in Projects).
+- **Negative branches, written out:** rules 1 and 2 are unknown-safe in the *old* direction — if the mechanism can't be detected, use `AskUserQuestion`; if reversibility is unclear, treat the step as hard to reverse. **Hook 3 is the deliberate exception:** if `$HOME` is unset or the skill path can't be checked, it is silent, because the old unconditional offer is the defect being fixed. The "Foundry: Active" message is not gated.
+- **Already-scaffolded projects keep their old rules** — templates copy rules into each project's CLAUDE.md, and nothing here edits other projects. Hand-edit those CLAUDE.md files (the end-of-turn rule, the plan-mode rule) and re-run `/foundry-hooks` for the Hook 3 change.
+- **Enforced at:** Hook 3 only, mechanically: `templates/settings.status.json.template`, this repo's `.claude/settings.json`, and `tests/run_fixtures.sh`'s Hook 3 skill-availability cases (written first, watched red; the offer-present case also neuter-tested by pointing the gate at a wrong path). Rules 1-3 are **judgment prose with no mechanical test** — `docs/context-efficiency-playbook.md` 9c-iv (canonical), `templates/CLAUDE.md.template`, `skills/oneshot/SKILL.md` and each skill's `## Closing out`. Not claimed as tested.
+
 ## 2026-10-27 — Ask about pre-existing private docs before the first commit, by judgment
 
 ### A judgment check, not a scanner

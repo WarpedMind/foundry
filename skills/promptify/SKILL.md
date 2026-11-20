@@ -72,7 +72,7 @@ This explanation is the point, not a courtesy — the user has said they want to
 
 ## Step 5a — `/promptify` mode: wait
 
-Present the rewritten prompt + explanation, then close the turn with an `AskUserQuestion` carrying those choices as real options — run it as-is, edit it first, or take another pass — rather than asking in prose. Picking is cheaper than composing, and "Other" is there for anything else. Do not act on it yet.
+Present the rewritten prompt + explanation, then close the turn with an `AskUserQuestion` carrying those choices as real options — run it as-is, edit it first, or take another pass — rather than asking in prose. Picking is cheaper than composing, and "Other" is there for anything else. Do not act on it yet. Where `AskUserQuestion` isn't available, use the environment's own decision mechanism (e.g. a decision card in a Projects thread), else ask in plain text; if you can't tell which exists, use `AskUserQuestion` as before (judgment guidance, untested — see `skills/oneshot/SKILL.md`).
 
 For the same reason `oneshot` gives, no Foundry-specific command belongs in these options: a rewritten prompt has touched no credentials and edited no document, so there is nothing for either to review. Whatever the prompt goes on to do may well warrant one, but that judgment belongs to the turn that runs it.
 
