@@ -753,7 +753,7 @@ dependency from the options alone.
 
 Small mechanical rule with an outsized cost when missed. Where the working
 agreement is "stay in one turn, ask rather than stop," the assistant must
-make a structured question the **final action of every turn**, including
+make a structured question (see the environment note under 9c-iv for what counts) the **final action of every turn**, including
 turns where the work is plainly finished.
 
 Ending with a summary instead — however complete — forces the person to
@@ -771,6 +771,13 @@ Two supporting details:
   use a feature they already have is worse.
 
 ### 9c-iv. If a recommendation isn't one of the options, it isn't really on the table
+
+> **Environment note.** "Structured question" below means `AskUserQuestion` where
+> that tool exists. If the environment offers a different decision mechanism
+> (e.g. a decision card in a Claude Code Projects thread), use that; if neither
+> exists, ask in plain text. The limits below apply unchanged to all three. If
+> you cannot tell which exists, fall back to `AskUserQuestion` (the original
+> behaviour). This is judgment guidance, not mechanically tested.
 
 The counterpart to entry 9's warning about over-using structured questions.
 That entry covers asking too often; this one covers asking in a way that

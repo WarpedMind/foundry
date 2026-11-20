@@ -95,7 +95,7 @@ Older material is archived out of this file to keep the SessionStart auto-load s
   Sessions 4-20 (2026-06-28 → 2026-08-18). Open it to reconstruct how a mechanism reached
   its current shape, or what an earlier review round actually found.
 - `SESSIONS_ARCHIVE.md` — session entries older than the newest two, newest-first
-  (currently from the 2026-10-24 secrets-guard entry backwards). Open it when
+  (currently from the 2026-10-25 `.dev.vars` entry backwards). Open it when
   tracing when and why something changed.
 - `DECISIONS_ARCHIVE.md` — decision entries from 2026-06 through 2026-08-18, newest-first
   (2026-06 originally; the six August entries were added by the 2026-10-24 pass, two of them
@@ -129,7 +129,7 @@ to go looking.
 ## Rules / Never do
 - Read CLAUDE.md, DECISIONS.md, and SESSIONS.md at the start of every session and stay anchored to them (enforced by this repo's own SessionStart hook once added — see `.claude/settings.json`)
 - Verify external claims (API behavior, docs, third-party task briefs) against live/actual behavior before trusting them and writing code against them
-- Use plan mode (or otherwise get explicit sign-off) before non-trivial implementation work
+- Proceed on steps that can be undone (edit a file, make a branch, open a draft PR) and say what you did; use plan mode or explicit sign-off for anything hard to reverse and for multi-approach or unclear-requirement work. If unsure whether a step is reversible, treat it as hard to reverse. (Judgment guidance, untested; the user's explicit instruction to plan first always wins.)
 - Commit only when explicitly asked; never use destructive git operations (force-push, hard reset, history rewrites) without explicit confirmation
 - Always read a file before editing it; if an exact-match replacement fails, re-read the file to find the actual current content rather than reaching for a regex fallback
 - Update SESSIONS.md and, if status changed, CLAUDE.md as part of the same work — not as a separate cleanup pass remembered later
